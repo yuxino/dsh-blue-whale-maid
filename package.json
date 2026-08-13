@@ -1,0 +1,46 @@
+{
+  "name": "dsh-blue-whale-maid",
+  "version": "1.0.0",
+  "description": "蓝鲸女仆 — a desktop pixel pet for the DeepSeek Harness web GUI (artwork by simashui @ codex-pets.net)",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/types/client.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [],
+      "immediately": true
+    }
+  },
+  "files": [
+    "lib/*.js",
+    "lib/types/*.d.ts",
+    "assets/spritesheet.webp",
+    "assets/pet.json",
+    "assets/poster.webp",
+    "assets/preview.webp"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "plugin",
+    "pet",
+    "codex-pet",
+    "blue-whale-maid"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yuxino/dsh-blue-whale-maid.git"
+  }
+}
