@@ -28,7 +28,10 @@
     "assets/spritesheet.webp",
     "assets/pet.json",
     "assets/poster.webp",
-    "assets/preview.webp"
+    "assets/preview.webp",
+    "README.md",
+    "CREDITS.md",
+    "LICENSE"
   ],
   "license": "MIT",
   "keywords": [

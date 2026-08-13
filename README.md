@@ -59,8 +59,16 @@ dsh plugin --profile web add github:yuxino/dsh-blue-whale-maid
 
 ### 开发热更
 
-DSH 的 client-HMR 会每 500ms 轮询各客户端 bundle 的内容变化：直接编辑已安装插件目录下的
-`lib/client.js`（或用 `node tools/embed.mjs` 重新生成），浏览器无需刷新、无需重启服务即可热切换。
+DSH 的 client-HMR 会每 500ms 轮询各客户端 bundle 的内容变化：修改**已安装副本**里的
+`lib/client.js`（位于 `$DSH_HOME/profiles/web/node_modules/dsh-blue-whale-maid/lib/client.js`），
+浏览器无需刷新、无需重启服务即可热切换。
+
+从仓库源码重新构建并更新已安装副本：
+
+```sh
+node tools/embed.mjs                                   # 重新内联素材、生成 lib/client.js
+dsh plugin --profile web add file:/abs/path/to/dsh-blue-whale-maid   # 重新复制进 profile
+```
 
 ## 开发
 
