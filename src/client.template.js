@@ -7,17 +7,20 @@
  *
  * The bundle registers a `shell.overlay` entry (the frame-wide floating
  * layer of the DSH web GUI) and renders 蓝鲸女仆 (Blue Whale Maid) — a
- * draggable, session-aware desktop pet.
+ * draggable, session-aware desktop pet that doubles as a task-completion
+ * notifier.
  *
  * Artwork: simashui @ codex-pets.net (https://codex-pets.net/#/pets/blue-whale-maid).
  * Sprite layout: Codex Pet v2 atlas, 8 cols x 11 rows, cell 192x208:
  *   0 idle · 1 running-right · 2 running-left · 3 waving · 4 jumping
  *   5 failed · 6 waiting · 7 running · 8 review · 9-10 look-directions (v2)
  *
- * Session hookup (codex-style): any session running -> "running" animation
- * with an occasional "review" beat; a session blocked on a user question ->
- * "waiting" with an occasional wave; a long run finishing -> "jumping"
- * celebration; switching session -> a greeting wave.
+ * Notification scheme (root-scope signals only):
+ *   - a session finishes running  -> "jumping" + 「任务名」完成啦 + jump-to-session button
+ *   - its jobs carry a failure   -> "failed" animation + problem notice
+ *   - session blocked on a user question -> "waiting" + wave + 「任务名」等你确认
+ *   - while working -> occasional bubbles naming the running job / task
+ *   - switching session          -> greeting wave
  *
  * @module dsh-blue-whale-maid/client
  */
@@ -48,8 +51,12 @@ window.__ModuleLoader__.load({
   font:13px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:#334155;
   white-space:pre-wrap;opacity:0;pointer-events:none;transition:opacity .18s;text-align:left}
 .bwm-bubble.bwm-on{opacity:1}
+.bwm-bubble.bwm-action{pointer-events:auto}
 .bwm-bubble::after{content:"";position:absolute;left:50%;top:100%;margin-left:-6px;
   border:6px solid transparent;border-top-color:#fff;filter:drop-shadow(0 1px 0 #d8e2f2)}
+.bwm-bubble-action{margin-top:6px;display:inline-block;border:0;border-radius:8px;padding:4px 12px;
+  background:#2563eb;color:#fff;font:12px/1.6 inherit;cursor:pointer}
+.bwm-bubble-action:hover{background:#1d4ed8}
 .bwm-restore{position:fixed;right:14px;bottom:14px;z-index:1500;border:1px solid #d8e2f2;
   background:rgba(255,255,255,.92);color:#475569;border-radius:999px;padding:5px 12px;
   font:12px/1 -apple-system,"PingFang SC",sans-serif;cursor:pointer;
@@ -92,6 +99,8 @@ window.__ModuleLoader__.load({
 			lookB: { row: 10, frames: 8, fps: 3, once: true }
 		};
 
+		const truncate = (s, n) => (s && s.length > n ? `${s.slice(0, n)}…` : s);
+
 		const LINES = {
 			wave: [
 				"主人，有什么吩咐吗？",
@@ -101,9 +110,14 @@ window.__ModuleLoader__.load({
 				"嗯？需要帮忙吗？",
 				"鲸尾摇摇，心情好好~"
 			],
-			jump: ["好耶——！", "太棒了！", "任务完成，辛苦啦！", "为你鼓掌！啪叽啪叽~"],
-			busy: ["正在认真工作中…", "马上就好，稍等一下下~", "干活中，勿扰啦~", "交给我吧！"],
-			pending: ["需要你确认一下哦~", "主人在吗？有个问题在等你~", "等你点一下，我就继续干活啦~"],
+			jump: ["好耶——！", "太棒了！", "为你鼓掌！啪叽啪叽~"],
+			done: (t) => `「${t}」完成啦！辛苦啦~`,
+			doneExtra: (n) => `还有 ${n} 个任务也完成了`,
+			failed: (t) => `「${t}」好像出了点问题…`,
+			workStart: (t) => `收到！去忙「${t}」啦~`,
+			workProgress: (t) => `还在忙「${t}」…`,
+			jobProgress: (j) => `正在跑「${j}」…`,
+			pending: (t) => `「${t}」等你确认哦~`,
 			switch: ["换会话啦？我还在哦~", "新的会话，新的开始！"],
 			pickup: ["呜哇，飞起来了！", "诶诶诶——"],
 			credit: [
@@ -112,6 +126,7 @@ window.__ModuleLoader__.load({
 			]
 		};
 		const pick = (list) => list[Math.floor(Math.random() * list.length)];
+		const GO_LOOK_LABEL = "去看看 →";
 
 		const STORE_KEY_POS = "dsh-blue-whale-maid:pos";
 		const STORE_KEY_HIDDEN = "dsh-blue-whale-maid:hidden";
@@ -137,8 +152,13 @@ window.__ModuleLoader__.load({
 		 *
 		 * The pet never moves on its own (no wandering): all animation is
 		 * in place. Movement happens only while the user drags her.
+		 *
+		 * `getSignal()` returns { rows, current } where rows are session
+		 * summaries { id, title, running, completed, pending, jobs }.
+		 * `show(text, ms, action)` shows a bubble; `action` = { label, fn }
+		 * renders a jump-to-session button inside it.
 		 */
-		function createPetEngine({ root, canvas, getBusy, say }) {
+		function createPetEngine({ root, canvas, getSignal, show, openSession }) {
 			const atlas = new Image();
 			atlas.src = ATLAS_DATA_URL;
 			const ctx = canvas.getContext("2d");
@@ -155,7 +175,6 @@ window.__ModuleLoader__.load({
 			let dragging = false;
 			let dragStart = null;
 			let lastClickAt = null;
-			let busyDuration = 0;
 			let nextActionAt = performance.now() + rand(3000, 7000);
 			let nextHeartAt = 0;
 			let nextLineAt = 0;
@@ -165,6 +184,11 @@ window.__ModuleLoader__.load({
 			let raf = 0;
 			let disposed = false;
 			const hearts = [];
+			// per-session running tracking: id -> { since, sawStart }
+			const prevRun = new Map();
+			// completion notifications waiting to be shown
+			const notifyQueue = [];
+			let notifyShowingUntil = 0;
 
 			const stateDef = () => STATES[state] ?? STATES.idle;
 
@@ -224,15 +248,76 @@ window.__ModuleLoader__.load({
 				resumeState = "idle";
 			}
 
+			// ------------------------------------------- notifications
+			function pushNotify(kind, sessionId, title) {
+				if (notifyQueue.length >= 5) return; // drop oldest-flow noise
+				notifyQueue.push({ kind, sessionId, title });
+			}
+
+			/** Show the next queued completion notification, if any. */
+			function pumpNotify(now) {
+				if (notifyQueue.length === 0) return;
+				if (notifyShowingUntil !== 0 && now < notifyShowingUntil) return;
+				const item = notifyQueue.shift();
+				notifyShowingUntil = now + 6500;
+				const isCurrent = getSignal().current === item.sessionId;
+				const action = !isCurrent && openSession
+					? { label: GO_LOOK_LABEL, fn: () => openSession(item.sessionId) }
+					: undefined;
+				if (item.kind === "failed") {
+					gesture("fail");
+					show(LINES.failed(truncate(item.title, 20)), 6000, action);
+				} else {
+					gesture("jump");
+					emitHearts(6);
+					let text = LINES.done(truncate(item.title, 20));
+					if (notifyQueue.length > 0) text += `\n${LINES.doneExtra(notifyQueue.length)}`;
+					show(text, 6000, action);
+				}
+			}
+
 			function update(dt) {
 				const now = performance.now();
-				const sig = getBusy(); // { running, pending, current }
+				const sig = getSignal(); // { rows, current }
 				const once = STATES[state]?.once === true;
+
+				// ---- session transitions: start bubbles, completion/failure notices
+				const runningIds = new Set();
+				const rowsById = new Map();
+				for (const r of sig.rows) {
+					if (!r || !r.id) continue;
+					rowsById.set(r.id, r);
+					if (r.running) runningIds.add(r.id);
+					const prev = prevRun.get(r.id);
+					if (r.running && (!prev || !prev.running)) {
+						prevRun.set(r.id, { running: true, since: now });
+						if (r.id === sig.current && !r.blank) {
+							show(LINES.workStart(truncate(r.title, 18)), 3200);
+							nextLineAt = now + rand(30000, 50000);
+						}
+					} else if (!r.running && prev && prev.running) {
+						// a task just finished — notify
+						const duration = now - (prev.since ?? now);
+						prevRun.set(r.id, { running: false, since: 0 });
+						if (duration > 3000 && !r.blank) {
+							const failedJob = (r.jobs ?? []).some((j) => j && j.status === "failed");
+							pushNotify(failedJob ? "failed" : "done", r.id, r.title ?? r.id);
+						}
+					}
+				}
+				for (const [id, prev] of prevRun) {
+					if (!rowsById.has(id)) prevRun.delete(id);
+				}
+
+				// ---- pump queued notifications first (they own the bubble)
+				if (notifyQueue.length > 0 || (notifyShowingUntil !== 0 && now < notifyShowingUntil)) {
+					pumpNotify(now);
+				}
 
 				// session switch → greeting wave
 				if (lastCurrent !== null && sig.current !== lastCurrent && !dragging) {
 					gesture("wave");
-					say(pick(LINES.switch), 2800);
+					show(pick(LINES.switch), 2800);
 				}
 				lastCurrent = sig.current;
 
@@ -242,9 +327,15 @@ window.__ModuleLoader__.load({
 					setState("idle");
 				}
 
-				if (sig.pending) {
+				// ---- the current session's state drives the animation
+				const currentRow = sig.current !== undefined ? rowsById.get(sig.current) : undefined;
+				const anyRunning = runningIds.size > 0;
+				const anyPending = sig.rows.some((r) => r && !!r.pendingInteraction);
+				const pendingRow = sig.rows.find((r) => r && !!r.pendingInteraction);
+
+				if (anyPending) {
 					// a session is blocked on a user question → waiting
-					if (!dragging && !once) setState("wait");
+					if (!dragging && !once && notifyQueue.length === 0) setState("wait");
 					if (now >= nextHeartAt) {
 						nextHeartAt = now + rand(2600, 4200);
 						emitHearts(1);
@@ -254,13 +345,16 @@ window.__ModuleLoader__.load({
 						if (Math.random() < 0.35) gesture("wave");
 					}
 					if (now >= nextLineAt) {
-						nextLineAt = now + rand(18000, 30000);
-						say(pick(LINES.pending), 3500);
+						nextLineAt = now + rand(20000, 32000);
+						const t = pendingRow ? truncate(pendingRow.title ?? pendingRow.id, 18) : "…";
+						const action = pendingRow && pendingRow.id !== sig.current && openSession
+							? { label: GO_LOOK_LABEL, fn: () => openSession(pendingRow.id) }
+							: undefined;
+						show(LINES.pending(t), 5000, action);
 					}
-				} else if (sig.running) {
+				} else if (anyRunning) {
 					// the agent is working → codex-style running + occasional review
-					busyDuration += dt;
-					if (!dragging && !once && state !== "run" && state !== "review") setState("run");
+					if (!dragging && !once && notifyQueue.length === 0 && state !== "run" && state !== "review") setState("run");
 					if (!dragging && !once && state === "run" && Math.random() < dt * 0.00005) {
 						setState("review");
 						transientUntil = now + rand(2500, 4000);
@@ -269,21 +363,15 @@ window.__ModuleLoader__.load({
 						nextHeartAt = now + rand(2200, 3800);
 						emitHearts(1);
 					}
-					if (now >= nextLineAt) {
-						nextLineAt = now + rand(25000, 45000);
-						say(pick(LINES.busy), 3200);
+					// periodic "what I'm doing" bubble for the current session
+					if (now >= nextLineAt && notifyQueue.length === 0) {
+						nextLineAt = now + rand(35000, 55000);
+						const job = (currentRow?.jobs ?? []).find((j) => j && j.status === "running");
+						if (job && job.label) show(LINES.jobProgress(truncate(job.label, 26)), 3600);
+						else if (currentRow) show(LINES.workProgress(truncate(currentRow.title ?? currentRow.id, 20)), 3200);
 					}
 				} else {
-					// all quiet — celebrate the end of a long run
-					if (busyDuration > 0) {
-						if (busyDuration > 20000) {
-							gesture("jump");
-							say(pick(LINES.jump), 3200);
-						}
-						busyDuration = 0;
-						nextLineAt = now + rand(6000, 12000);
-						if (!once) setState("idle");
-					}
+					// all quiet — nothing to do beyond idle loiter
 					// idle loiter: look around or run in place — never wander
 					if (!dragging && !once && transientUntil === 0 && state === "idle" && now >= nextActionAt) {
 						nextActionAt = now + rand(8000, 20000);
@@ -402,20 +490,26 @@ window.__ModuleLoader__.load({
 				transientUntil = 0;
 				if (!dragStart.moved) {
 					const now = performance.now();
+					// pending completion notifications take priority on click
+					if (notifyQueue.length > 0) {
+						notifyShowingUntil = 0;
+						pumpNotify(now);
+						return;
+					}
 					if (lastClickAt !== null && now - lastClickAt < 350) {
 						// double click → celebrate
 						lastClickAt = null;
 						gesture("jump");
 						emitHearts(6);
-						say(pick(LINES.jump), 3200);
+						show(pick(LINES.jump), 3200);
 					} else {
 						lastClickAt = now;
 						gesture("wave");
 						emitHearts(3);
-						say(pick(LINES.wave), 3000);
+						show(pick(LINES.wave), 3000);
 					}
 				} else {
-					say(pick(LINES.pickup), 2000);
+					show(pick(LINES.pickup), 2000);
 					setState("idle");
 				}
 			}
@@ -468,32 +562,66 @@ window.__ModuleLoader__.load({
 				}
 			});
 
-			// Session signal: any session running → working; any session
-			// blocked on a user question → waiting; current id → greeting.
+			// Session snapshot: rows carry title / running / completed /
+			// pendingInteraction / jobs; current marks the selected session.
 			const sig = props.useSessions
 				? props.useSessions((s) => {
-					const rows = s && s.byId ? Object.values(s.byId) : [];
-					return {
-						running: rows.some((r) => r && r.running === true),
-						pending: rows.some((r) => r && !!r.pendingInteraction),
-						current: s ? s.current : undefined
-					};
+					const byId = s && s.byId ? s.byId : {};
+					const jobs = s && s.jobsBySession ? s.jobsBySession : {};
+					const rows = Object.values(byId).map((r) => ({
+						id: r && r.id,
+						title: r && (r.displayTitle ?? r.title),
+						running: !!(r && r.running),
+						completed: !!(r && r.completed),
+						blank: !!(r && r.blank),
+						pendingInteraction: !!(r && r.pendingInteraction),
+						jobs: (r && jobs[r.id]) || []
+					}));
+					return { rows, current: s ? s.current : undefined };
 				})
-				: { running: false, pending: false, current: undefined };
+				: { rows: [], current: undefined };
 			const sigRef = useRef(sig);
 			sigRef.current = sig;
 
-			const say = useMemo(() => {
+			// Bubble controller: text (optional action button), hover pauses the hide timer.
+			const show = useMemo(() => {
 				let timer = 0;
-				return (text, ms) => {
-					if (!bubbleRef.current) return;
-					bubbleRef.current.textContent = text;
-					bubbleRef.current.classList.add("bwm-on");
+				let hover = false;
+				const hideSoon = (ms) => {
 					clearTimeout(timer);
 					timer = setTimeout(() => {
-						if (bubbleRef.current) bubbleRef.current.classList.remove("bwm-on");
-					}, ms ?? 3000);
+						if (!hover && bubbleRef.current) hide();
+					}, ms);
 				};
+				const hide = () => {
+					if (bubbleRef.current) bubbleRef.current.classList.remove("bwm-on");
+				};
+				const showFn = (text, ms, action) => {
+					const b = bubbleRef.current;
+					if (!b) return;
+					b.textContent = "";
+					b.className = "bwm-bubble bwm-on" + (action ? " bwm-action" : "");
+					const span = document.createElement("span");
+					span.textContent = text;
+					b.appendChild(span);
+					if (action) {
+						const btn = document.createElement("button");
+						btn.className = "bwm-bubble-action";
+						btn.textContent = action.label;
+						btn.addEventListener("click", (ev) => {
+							ev.stopPropagation();
+							hide();
+							action.fn();
+						});
+						b.appendChild(btn);
+					}
+					hideSoon(ms ?? 3000);
+				};
+				if (bubbleRef.current) {
+					bubbleRef.current.addEventListener("mouseenter", () => { hover = true; clearTimeout(timer); });
+					bubbleRef.current.addEventListener("mouseleave", () => { hover = false; });
+				}
+				return showFn;
 			}, []);
 
 			useEffect(() => {
@@ -501,19 +629,20 @@ window.__ModuleLoader__.load({
 				const engine = createPetEngine({
 					root: rootRef.current,
 					canvas: canvasRef.current,
-					getBusy: () => sigRef.current,
-					say
+					getSignal: () => sigRef.current,
+					show,
+					openSession: props.openSession
 				});
 				engineRef.current = engine;
 				// one-time attribution notice
 				try {
 					if (localStorage.getItem(STORE_KEY_CREDITED) !== "1") {
 						localStorage.setItem(STORE_KEY_CREDITED, "1");
-						setTimeout(() => say(pick(LINES.credit), 5200), 900);
+						setTimeout(() => show(pick(LINES.credit), 5200), 900);
 					}
 				} catch { /* ignore */ }
 				return () => engine.dispose();
-			}, [hidden, say]);
+			}, [hidden, show, props.openSession]);
 
 			const restore = h(
 				"button",
@@ -558,15 +687,23 @@ window.__ModuleLoader__.load({
 		 * Services required by this plugin. `layout` is injected for ordering,
 		 * not for use: ui-layout's AppFrame entry declares the `shell.overlay`
 		 * slot when it mounts, and the cordis service dependency guarantees our
-		 * apply runs only after that declaration exists.
+		 * apply runs only after that declaration exists. `sessions` powers the
+		 * jump-to-session button on completion notifications.
 		 */
-		const inject = ["slots", "layout"];
+		const inject = ["slots", "layout", "sessions"];
 
 		/**
 		 * Registers the pet into the shell-wide floating layer.
 		 * @param ctx - Client root context.
 		 */
 		function apply(ctx) {
+			const openSession = (id) => {
+				try {
+					ctx.sessions.open(id);
+				} catch (error) {
+					ctx.logger?.warn?.(error);
+				}
+			};
 			ctx.effect(
 				() =>
 					ctx.slots.register(
@@ -576,7 +713,7 @@ window.__ModuleLoader__.load({
 							order: 100,
 							label: "蓝鲸女仆"
 						},
-						WhaleMaidPet
+						(props) => h(WhaleMaidPet, { ...props, openSession })
 					),
 				"dsh-blue-whale-maid: shell.overlay entry"
 			);
