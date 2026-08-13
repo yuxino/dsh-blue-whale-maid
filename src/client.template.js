@@ -43,10 +43,10 @@ window.__ModuleLoader__.load({
 .bwm-root:hover .bwm-hide{opacity:1}
 .bwm-hide:hover{background:rgba(220,38,38,.85)}
 .bwm-bubble{position:absolute;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);
-  max-width:240px;background:#fff;border:1px solid #d8e2f2;border-radius:12px;
-  box-shadow:0 4px 14px rgba(15,23,42,.12);padding:7px 11px;font:13px/1.5 -apple-system,
-  "PingFang SC","Microsoft YaHei",sans-serif;color:#334155;white-space:pre-wrap;
-  opacity:0;pointer-events:none;transition:opacity .18s;text-align:left}
+  width:max-content;max-width:300px;min-width:96px;background:#fff;border:1px solid #d8e2f2;
+  border-radius:12px;box-shadow:0 4px 14px rgba(15,23,42,.12);padding:8px 12px;
+  font:13px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:#334155;
+  white-space:pre-wrap;opacity:0;pointer-events:none;transition:opacity .18s;text-align:left}
 .bwm-bubble.bwm-on{opacity:1}
 .bwm-bubble::after{content:"";position:absolute;left:50%;top:100%;margin-left:-6px;
   border:6px solid transparent;border-top-color:#fff;filter:drop-shadow(0 1px 0 #d8e2f2)}
