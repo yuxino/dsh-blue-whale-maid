@@ -50,26 +50,22 @@
 | 8 | review | 检查 |
 | 9-10 | look-directions | 左右张望 |
 
-## 安装
+## 安装（一步到位）
 
-插件是一个带浏览器端的 DSH 客户端插件包（host 端为空 `apply`，仅用于挂载进 Loader）。
+插件声明了 `dsh.bundle`：`dsh plugin add` 会**自动把它注册进 profile 的 bundle 列表**，
+无需手动改任何配置文件。
 
 ```sh
-# 1. 把插件装进 web profile（转发给 pnpm）
-dsh plugin --profile web add file:/path/to/dsh-blue-whale-maid
-#   或者从 GitHub 装：
+# 方式一：一条命令装完（可选 --restart 自动重启 dsh web）
+curl -fsSL https://raw.githubusercontent.com/yuxino/dsh-blue-whale-maid/main/install.sh | sh
+
+# 方式二：手动执行等效操作
 dsh plugin --profile web add github:yuxino/dsh-blue-whale-maid
 ```
 
-2. 在 `$DSH_HOME/profiles/web/cordis.patch.yml` 中把插件插入加载器：
+然后重启 `dsh web`（或安装时加 `--restart` 自动重启），刷新页面即可看到宠物。
 
-```yaml
-- insert:
-    - id: dsh-blue-whale-maid
-      name: dsh-blue-whale-maid
-```
-
-3. 重启 `dsh web`（加载器在启动时读取插件列表），刷新页面即可看到宠物。
+卸载：`dsh plugin --profile web remove dsh-blue-whale-maid`，重启后生效。
 
 ### 开发热更
 

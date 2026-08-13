@@ -1,6 +1,6 @@
 {
   "name": "dsh-blue-whale-maid",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "蓝鲸女仆 — a desktop pixel pet for the DeepSeek Harness web GUI (artwork by simashui @ codex-pets.net)",
   "type": "module",
   "main": "lib/index.js",
@@ -16,6 +16,9 @@
     "./package.json": "./package.json"
   },
   "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "platform": "web",
       "inject": [],
@@ -29,6 +32,7 @@
     "assets/pet.json",
     "assets/poster.webp",
     "assets/preview.webp",
+    "cordis.patch.yml",
     "README.md",
     "CREDITS.md",
     "LICENSE"
