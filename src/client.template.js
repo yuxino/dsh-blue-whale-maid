@@ -14,6 +14,11 @@
  *   0 idle · 1 running-right · 2 running-left · 3 waving · 4 jumping
  *   5 failed · 6 waiting · 7 running · 8 review · 9-10 look-directions (v2)
  *
+ * Session hookup (codex-style): any session running -> "running" animation
+ * with an occasional "review" beat; a session blocked on a user question ->
+ * "waiting" with an occasional wave; a long run finishing -> "jumping"
+ * celebration; switching session -> a greeting wave.
+ *
  * @module dsh-blue-whale-maid/client
  */
 window.__ModuleLoader__.load({
@@ -28,10 +33,10 @@ window.__ModuleLoader__.load({
 
 		// ---------------------------------------------------------------- css
 		const CSS = `
-.bwm-root{position:fixed;z-index:1500;width:192px;height:208px;pointer-events:auto;
+.bwm-root{position:fixed;z-index:1500;width:144px;height:156px;pointer-events:auto;
   user-select:none;-webkit-user-select:none;touch-action:none;cursor:grab;box-sizing:border-box}
 .bwm-root.bwm-dragging{cursor:grabbing}
-.bwm-root canvas{display:block;width:192px;height:208px;image-rendering:pixelated}
+.bwm-root canvas{display:block;width:144px;height:156px;image-rendering:pixelated}
 .bwm-hide{position:absolute;top:2px;right:2px;width:20px;height:20px;border:0;border-radius:50%;
   background:rgba(30,41,59,.65);color:#fff;font:12px/18px sans-serif;text-align:center;
   cursor:pointer;opacity:0;transition:opacity .15s;padding:0}
@@ -68,6 +73,9 @@ window.__ModuleLoader__.load({
 		const CELL_W = 192;
 		const CELL_H = 208;
 		const ATLAS_COLS = 8;
+		// On-screen size (CSS px): 75% of the sprite cell — desktop-pet scale.
+		const PET_W = 144;
+		const PET_H = 156;
 
 		// Codex Pet v2 standard row layout (see codexpet.xyz spec).
 		const STATES = {
@@ -95,6 +103,8 @@ window.__ModuleLoader__.load({
 			],
 			jump: ["好耶——！", "太棒了！", "任务完成，辛苦啦！", "为你鼓掌！啪叽啪叽~"],
 			busy: ["正在认真工作中…", "马上就好，稍等一下下~", "干活中，勿扰啦~", "交给我吧！"],
+			pending: ["需要你确认一下哦~", "主人在吗？有个问题在等你~", "等你点一下，我就继续干活啦~"],
+			switch: ["换会话啦？我还在哦~", "新的会话，新的开始！"],
 			pickup: ["呜哇，飞起来了！", "诶诶诶——"],
 			credit: [
 				"蓝鲸女仆参上！图源 simashui（codex-pets.net）",
@@ -123,7 +133,10 @@ window.__ModuleLoader__.load({
 
 		/**
 		 * Self-contained animation/behavior engine. Vanilla JS + rAF; the
-		 * React wrapper only owns mounting and the busy signal.
+		 * React wrapper only owns mounting and the session signal.
+		 *
+		 * The pet never moves on its own (no wandering): all animation is
+		 * in place. Movement happens only while the user drags her.
 		 */
 		function createPetEngine({ root, canvas, getBusy, say }) {
 			const atlas = new Image();
@@ -138,17 +151,19 @@ window.__ModuleLoader__.load({
 			let frame = 0;
 			let frameElapsed = 0;
 			let resumeState = "idle"; // state to return to after a one-shot gesture
+			let transientUntil = 0; // revert time for non-once transient states (run-in-place, review)
 			let dragging = false;
 			let dragStart = null;
-			let targetX = null;
-			let dir = 1;
+			let lastClickAt = null;
 			let busyDuration = 0;
-			let nextActionAt = performance.now() + rand(4000, 9000);
+			let nextActionAt = performance.now() + rand(3000, 7000);
 			let nextHeartAt = 0;
+			let nextLineAt = 0;
+			let nextWaveAt = 0;
+			let lastCurrent = null;
 			let lastTime = performance.now();
 			let raf = 0;
 			let disposed = false;
-			let lastClickAt = null;
 			const hearts = [];
 
 			const stateDef = () => STATES[state] ?? STATES.idle;
@@ -157,8 +172,8 @@ window.__ModuleLoader__.load({
 				const vw = document.documentElement.clientWidth;
 				const vh = document.documentElement.clientHeight;
 				return {
-					x: clamp(x, -120, vw - 72),
-					y: clamp(y, 0, vh - CELL_H)
+					x: clamp(x, -100, vw - PET_W * 0.375),
+					y: clamp(y, 0, vh - PET_H)
 				};
 			}
 
@@ -186,6 +201,7 @@ window.__ModuleLoader__.load({
 			function gesture(name) {
 				if (reducedMotion || dragging) return;
 				resumeState = state === name ? "idle" : state;
+				transientUntil = 0;
 				setState(name);
 			}
 
@@ -209,23 +225,74 @@ window.__ModuleLoader__.load({
 			}
 
 			function update(dt) {
-				const busy = getBusy();
-				if (busy) {
-					busyDuration += dt;
-					if (!dragging && !STATES[state]?.once && state !== "wait") setState("wait");
-					if (performance.now() >= nextHeartAt) {
-						nextHeartAt = performance.now() + rand(1800, 3400);
+				const now = performance.now();
+				const sig = getBusy(); // { running, pending, current }
+				const once = STATES[state]?.once === true;
+
+				// session switch → greeting wave
+				if (lastCurrent !== null && sig.current !== lastCurrent && !dragging) {
+					gesture("wave");
+					say(pick(LINES.switch), 2800);
+				}
+				lastCurrent = sig.current;
+
+				// transient (run-in-place / review) expiry
+				if (transientUntil !== 0 && now >= transientUntil && !dragging) {
+					transientUntil = 0;
+					setState("idle");
+				}
+
+				if (sig.pending) {
+					// a session is blocked on a user question → waiting
+					if (!dragging && !once) setState("wait");
+					if (now >= nextHeartAt) {
+						nextHeartAt = now + rand(2600, 4200);
 						emitHearts(1);
 					}
-					if (Math.random() < dt * 0.00025) say(pick(LINES.busy), 3500);
-				} else if (busyDuration > 0) {
-					if (busyDuration > 20000) {
+					if (now >= nextWaveAt) {
+						nextWaveAt = now + rand(6000, 10000);
+						if (Math.random() < 0.35) gesture("wave");
+					}
+					if (now >= nextLineAt) {
+						nextLineAt = now + rand(18000, 30000);
+						say(pick(LINES.pending), 3500);
+					}
+				} else if (sig.running) {
+					// the agent is working → codex-style running + occasional review
+					busyDuration += dt;
+					if (!dragging && !once && state !== "run" && state !== "review") setState("run");
+					if (!dragging && !once && state === "run" && Math.random() < dt * 0.00005) {
+						setState("review");
+						transientUntil = now + rand(2500, 4000);
+					}
+					if (now >= nextHeartAt) {
+						nextHeartAt = now + rand(2200, 3800);
+						emitHearts(1);
+					}
+					if (now >= nextLineAt) {
+						nextLineAt = now + rand(25000, 45000);
+						say(pick(LINES.busy), 3200);
+					}
+				} else {
+					// all quiet — celebrate the end of a long run
+					if (busyDuration > 0) {
+						if (busyDuration > 20000) {
+							gesture("jump");
+							say(pick(LINES.jump), 3200);
+						}
 						busyDuration = 0;
-						gesture("jump");
-						say(pick(LINES.jump), 3200);
-					} else {
-						busyDuration = 0;
-						if (!STATES[state]?.once) setState("idle");
+						nextLineAt = now + rand(6000, 12000);
+						if (!once) setState("idle");
+					}
+					// idle loiter: look around or run in place — never wander
+					if (!dragging && !once && transientUntil === 0 && state === "idle" && now >= nextActionAt) {
+						nextActionAt = now + rand(8000, 20000);
+						const roll = Math.random();
+						if (roll < 0.3) gesture(roll < 0.15 ? "lookA" : "lookB");
+						else if (roll < 0.65) {
+							setState(Math.random() < 0.5 ? "runRight" : "runLeft");
+							transientUntil = now + rand(2500, 4500);
+						}
 					}
 				}
 
@@ -237,32 +304,6 @@ window.__ModuleLoader__.load({
 					frameElapsed -= frameDur;
 					frame = (frame + 1) % def.frames;
 					if (frame === 0 && def.once) onGestureEnd();
-				}
-
-				// idle loiter: occasionally look around or wander
-				if (!busy && !dragging && !STATES[state]?.once) {
-					if (state === "idle" && performance.now() >= nextActionAt) {
-						nextActionAt = performance.now() + rand(7000, 20000);
-						const roll = Math.random();
-						if (roll < 0.3) gesture(roll < 0.15 ? "lookA" : "lookB");
-						else if (roll < 0.7) {
-							const vw = document.documentElement.clientWidth;
-							targetX = rand(30, Math.max(31, vw - CELL_W - 30));
-							dir = targetX > parseFloat(root.style.left) ? 1 : -1;
-							setState(dir > 0 ? "runRight" : "runLeft");
-						}
-					}
-					if (targetX !== null) {
-						const x = parseFloat(root.style.left);
-						const step = (dir > 0 ? 62 : -62) * (dt / 1000);
-						const nx = dir > 0 ? Math.min(targetX, x + step) : Math.max(targetX, x + step);
-						applyPos(nx, parseFloat(root.style.top));
-						if (nx === targetX) {
-							targetX = null;
-							setState("idle");
-							persistPos();
-						}
-					}
 				}
 
 				// hearts physics
@@ -323,7 +364,6 @@ window.__ModuleLoader__.load({
 				ev.preventDefault();
 				root.setPointerCapture?.(ev.pointerId);
 				dragging = true;
-				targetX = null;
 				dragStart = {
 					x: ev.clientX,
 					y: ev.clientY,
@@ -359,6 +399,7 @@ window.__ModuleLoader__.load({
 				const p = clampPos(parseFloat(root.style.left), parseFloat(root.style.top));
 				applyPos(p.x, p.y);
 				persistPos();
+				transientUntil = 0;
 				if (!dragStart.moved) {
 					const now = performance.now();
 					if (lastClickAt !== null && now - lastClickAt < 350) {
@@ -392,11 +433,11 @@ window.__ModuleLoader__.load({
 					applyPos(p.x, p.y);
 				} else {
 					const vw = document.documentElement.clientWidth;
-					applyPos(vw - CELL_W - 28, Math.max(0, document.documentElement.clientHeight - CELL_H - 28));
+					applyPos(vw - PET_W - 28, Math.max(0, document.documentElement.clientHeight - PET_H - 28));
 				}
 			} catch {
 				const vw = document.documentElement.clientWidth;
-				applyPos(vw - CELL_W - 28, Math.max(0, document.documentElement.clientHeight - CELL_H - 28));
+				applyPos(vw - PET_W - 28, Math.max(0, document.documentElement.clientHeight - PET_H - 28));
 			}
 
 			raf = requestAnimationFrame(loop);
@@ -427,15 +468,20 @@ window.__ModuleLoader__.load({
 				}
 			});
 
-			// any session running → the agent is working → the pet waits
-			const busy = props.useSessions
+			// Session signal: any session running → working; any session
+			// blocked on a user question → waiting; current id → greeting.
+			const sig = props.useSessions
 				? props.useSessions((s) => {
 					const rows = s && s.byId ? Object.values(s.byId) : [];
-					return rows.some((r) => r && r.running === true);
+					return {
+						running: rows.some((r) => r && r.running === true),
+						pending: rows.some((r) => r && !!r.pendingInteraction),
+						current: s ? s.current : undefined
+					};
 				})
-				: false;
-			const busyRef = useRef(busy);
-			busyRef.current = busy;
+				: { running: false, pending: false, current: undefined };
+			const sigRef = useRef(sig);
+			sigRef.current = sig;
 
 			const say = useMemo(() => {
 				let timer = 0;
@@ -455,7 +501,7 @@ window.__ModuleLoader__.load({
 				const engine = createPetEngine({
 					root: rootRef.current,
 					canvas: canvasRef.current,
-					getBusy: () => busyRef.current,
+					getBusy: () => sigRef.current,
 					say
 				});
 				engineRef.current = engine;
@@ -508,8 +554,13 @@ window.__ModuleLoader__.load({
 		}
 
 		// ---------------------------------------------------------- plugin
-		/** Services required by this plugin. */
-		const inject = ["slots"];
+		/**
+		 * Services required by this plugin. `layout` is injected for ordering,
+		 * not for use: ui-layout's AppFrame entry declares the `shell.overlay`
+		 * slot when it mounts, and the cordis service dependency guarantees our
+		 * apply runs only after that declaration exists.
+		 */
+		const inject = ["slots", "layout"];
 
 		/**
 		 * Registers the pet into the shell-wide floating layer.

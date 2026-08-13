@@ -9,12 +9,26 @@
 > 原作者为 **simashui**。本仓库的代码采用 MIT 协议，但**美术素材不适用该协议**，
 > 请尊重原作者，勿将素材用于商业用途。详见 [CREDITS.md](./CREDITS.md)。
 
+## 展示
+
+运行在 DSH Web GUI 右下角的样子（气泡为内置的出处致谢提示）：
+
+![在 DSH 中运行](./docs/running-in-dsh.png)
+
+精灵图 11 行动画一览（每行取前 3 帧，素材为原图未修改）：
+
+![动画一览](./assets/animation-strip.png)
+
 ## 功能
 
-- 🐳 悬浮在 DSH 窗口上方，基于 `shell.overlay` 插槽，不遮挡底层交互（除宠物自身外点击穿透）
-- 🚶 待机呼吸、左右张望、随机散步（Codex Pet v2 精灵图 11 行动画）
-- 💼 **会话感知**：任意会话处于运行中（agent 在工作）时切换到「等待」动画并冒出小爱心；长任务结束后会开心地跳一下
-- 🖱️ 单击 → 挥手 + 爱心 + 台词；双击 → 跳跃庆祝；按住拖动 → 提着她到处跑，松手落地
+- 🐳 悬浮在 DSH 窗口上方，基于 `shell.overlay` 插槽，不遮挡底层交互（除宠物自身外点击穿透）；默认 144×156 的桌面宠物尺寸
+- 🚶 待机呼吸、左右张望、**原地小跑**（Codex Pet v2 精灵图 11 行动画）——**不会自己乱跑**，只有按住拖动才会移动，松手停在原地
+- 💼 **会话联动（对标 codex 的运作方式）**：
+  - 任意会话运行中（agent 在工作）→ 「奔跑」动画 + 偶尔切「检查」+ 冒出小爱心
+  - 会话卡在等你确认（审批/提问）→ 「等待」动画 + 偶尔挥手提醒
+  - 长任务结束 → 「跳跃」庆祝
+  - 切换会话 → 挥手打招呼
+- 🖱️ 单击 → 挥手 + 爱心 + 台词；双击 → 跳跃庆祝；按住拖动 → 拎着她到处跑，松手落地
 - 💬 中文台词气泡（含一次性出处致谢提示）
 - 🔖 位置记忆（localStorage）、悬停显示隐藏按钮、隐藏后可随时召唤回来
 - ♿ 尊重 `prefers-reduced-motion`（减少动态效果时保持静止）
@@ -80,7 +94,16 @@ node --check lib/client.js
 `lib/client.js` 是生成产物（模板见 `src/client.template.js`），仓库直接提交生成结果，
 保证「免构建安装」可用。
 
-## 许可与出处
+## 来源与许可
 
-- 代码：MIT © [yuxino](https://github.com/yuxino)
-- 美术素材：© **simashui**，来自 [codex-pets.net — Blue Whale Maid](https://codex-pets.net/#/pets/blue-whale-maid)，仅作学习交流使用，详见 [CREDITS.md](./CREDITS.md)
+本仓库是对 [codex-pets.net](https://codex-pets.net) 上「蓝鲸女仆」宠物的 **DSH 移植**。
+
+| 内容 | 来源 | 许可 |
+|---|---|---|
+| 代码（插件实现） | 本仓库 [yuxino](https://github.com/yuxino) 编写 | MIT |
+| `assets/spritesheet.webp` 精灵图 | [codex-pets.net — Blue Whale Maid](https://codex-pets.net/#/pets/blue-whale-maid)，原作者 **simashui** | © simashui，未经原作者许可请勿商用 |
+| `assets/poster.webp` / `assets/preview.webp` | 同上 | © simashui |
+| `assets/pet.json` 元数据 | 同上（原样保留） | © simashui |
+| 精灵图格式规范 | [Codex Pet 技术规范](http://codexpet.xyz/zh/spec/)（openai/codex 宠物 v2 图集） | 参考 |
+
+更详细的来源说明与致谢见 [CREDITS.md](./CREDITS.md)。
