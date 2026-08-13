@@ -28,7 +28,15 @@ curl -fsSL https://raw.githubusercontent.com/yuxino/dsh-blue-whale-maid/main/ins
 # 或：dsh plugin --profile web add github:yuxino/dsh-blue-whale-maid
 ```
 
-重启 `dsh web`（或安装时加 `--restart`），刷新页面即可。卸载：`dsh plugin --profile web remove dsh-blue-whale-maid`。
+重启 `dsh web`（或安装时加 `--restart`），刷新页面即可。
+
+## 关闭与卸载
+
+| 目的 | 做法 | 生效 |
+|---|---|---|
+| 临时藏起来 | 悬停宠物点右上角 ✕；右下角「🐳 召唤蓝鲸女仆」随时叫回来 | 立即 |
+| 关闭插件（保留安装） | 在 `$DSH_HOME/profiles/web/cordis.patch.yml` 加 `- { id: dsh-blue-whale-maid, disabled: true }`；删除该行即重新开启 | 重启 `dsh web` |
+| 卸载 | `dsh plugin --profile web remove dsh-blue-whale-maid` | 重启 `dsh web` |
 
 ## 开发
 
