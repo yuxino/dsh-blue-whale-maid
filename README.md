@@ -6,8 +6,6 @@
 
 <p align="center">把蓝鲸女仆搬进 DeepSeek Harness。陪你跑任务，也负责在任务结束时戳你一下。</p>
 
-![在 DSH 中运行](./docs/running-in-dsh.png)
-
 ## 功能
 
 - 任务完成 / 失败 / 等待确认时，用动画和气泡提醒
