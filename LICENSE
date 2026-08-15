@@ -23,6 +23,6 @@ SOFTWARE.
 ---
 
 NOTE: This license covers the CODE in this repository only.
-The artwork in assets/ (spritesheet.webp, poster.webp, preview.webp) is
-copyright of simashui (codex-pets.net) and is NOT covered by this license.
+The assets in assets/ (spritesheet.webp, preview.webp and pet.json) originate
+from simashui via codex-pets.net and are NOT covered by this license.
 See CREDITS.md.

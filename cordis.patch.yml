@@ -1,7 +1,3 @@
-# Loader patch layer of the dsh-blue-whale-maid bundle, composed automatically
-# when the package is registered as a profile bundle (via
-# `dsh plugin --profile <name> add dsh-blue-whale-maid`).
-# Inserts this plugin into the loader entry tree. No manual profile edits needed.
 - insert:
     - id: dsh-blue-whale-maid
       name: dsh-blue-whale-maid

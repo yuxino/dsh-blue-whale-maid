@@ -1,7 +1,7 @@
 {
   "name": "dsh-blue-whale-maid",
   "version": "1.2.0",
-  "description": "蓝鲸女仆 — a desktop pixel pet for the DeepSeek Harness web GUI (artwork by simashui @ codex-pets.net)",
+  "description": "Blue Whale Maid desktop pet and task notifier for DeepSeek Harness Web (artwork by simashui @ codex-pets.net)",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -28,9 +28,6 @@
   "files": [
     "lib/*.js",
     "lib/types/*.d.ts",
-    "assets/spritesheet.webp",
-    "assets/pet.json",
-    "assets/poster.webp",
     "assets/preview.webp",
     "cordis.patch.yml",
     "README.md",
@@ -42,8 +39,8 @@
     "dsh",
     "deepseek-harness",
     "plugin",
-    "pet",
-    "codex-pet",
+    "desktop-pet",
+    "task-notifier",
     "blue-whale-maid"
   ],
   "repository": {
