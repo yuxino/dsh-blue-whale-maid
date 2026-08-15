@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/preview.webp" width="180" alt="蓝鲸女仆">
+  <img src="./assets/logo.gif" width="180" alt="蓝鲸女仆">
 </p>
 
 <h1 align="center">dsh-blue-whale-maid</h1>

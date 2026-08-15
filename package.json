@@ -28,7 +28,7 @@
   "files": [
     "lib/*.js",
     "lib/types/*.d.ts",
-    "assets/preview.webp",
+    "assets/logo.gif",
     "cordis.patch.yml",
     "README.md",
     "CREDITS.md",
