@@ -57,6 +57,23 @@ window.__ModuleLoader__.load({
 .bwm-bubble-action{margin-top:6px;display:inline-block;border:0;border-radius:8px;padding:4px 12px;
   background:#2563eb;color:#fff;font:12px/1.6 inherit;cursor:pointer}
 .bwm-bubble-action:hover{background:#1d4ed8}
+.bwm-keycard{position:absolute;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);
+  width:230px;background:#fff;border:1px solid #d8e2f2;border-radius:12px;
+  box-shadow:0 4px 14px rgba(15,23,42,.14);padding:10px 12px;z-index:1501;
+  font:12px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:#334155}
+.bwm-keycard-label{display:block;margin-bottom:6px;font-weight:600}
+.bwm-keycard-hint{display:block;color:#94a3b8;font-size:11px;line-height:1.5;margin-bottom:8px}
+.bwm-keycard input{box-sizing:border-box;width:100%;border:1px solid #cbd5e1;border-radius:8px;
+  padding:6px 8px;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:#0f172a;
+  outline:0;margin-bottom:8px}
+.bwm-keycard input:focus{border-color:#2563eb}
+.bwm-keycard-actions{display:flex;gap:8px}
+.bwm-keycard-save{flex:1;border:0;border-radius:8px;padding:5px 10px;background:#2563eb;
+  color:#fff;font:12px/1.6 inherit;cursor:pointer}
+.bwm-keycard-save:hover{background:#1d4ed8}
+.bwm-keycard-cancel{flex:1;border:1px solid #cbd5e1;border-radius:8px;padding:5px 10px;
+  background:#fff;color:#475569;font:12px/1.6 inherit;cursor:pointer}
+.bwm-keycard-cancel:hover{background:#f1f5f9}
 .bwm-restore{position:fixed;right:14px;bottom:14px;z-index:1500;border:1px solid #d8e2f2;
   background:rgba(255,255,255,.92);color:#475569;border-radius:999px;padding:5px 12px;
   font:12px/1 -apple-system,"PingFang SC",sans-serif;cursor:pointer;
@@ -164,6 +181,12 @@ window.__ModuleLoader__.load({
 		const STORE_KEY_POS = "dsh-blue-whale-maid:pos";
 		const STORE_KEY_HIDDEN = "dsh-blue-whale-maid:hidden";
 		const STORE_KEY_CREDITED = "dsh-blue-whale-maid:credited";
+		const STORE_KEY_DEEPSEEK = "dsh-blue-whale-maid:deepseek-key";
+
+		// DeepSeek account balance (official endpoint, no payload).
+		const DEEPSEEK_BALANCE_URL = "https://api.deepseek.com/user/balance";
+		const BALANCE_ACTION_LABEL = "💰 查余额";
+		const KEY_CRED_REF = "DEEPSEEK_API_KEY";
 
 		// Pixel heart (6x7) drawn with fillRect.
 		const HEART = [
@@ -246,6 +269,129 @@ window.__ModuleLoader__.load({
 						JSON.stringify({ x: parseFloat(root.style.left), y: parseFloat(root.style.top) })
 					);
 				} catch { /* storage unavailable — position just won't persist */ }
+			}
+
+			// ------------------------------------------- deepseek balance
+			/**
+			 * Query the DeepSeek account balance for the stored API key.
+			 * Renders the result (or an error) into the bubble.
+			 */
+			async function queryBalance() {
+				let key = null;
+				try {
+					key = localStorage.getItem(STORE_KEY_DEEPSEEK);
+				} catch { /* storage unavailable */ }
+				if (!key || key.trim().length === 0) {
+					openKeyCard("还没配 DeepSeek key，输入一次就能查余额啦~（只存在本机浏览器）");
+					return;
+				}
+				show("💰 查询中…", 0);
+				try {
+					const res = await fetch(DEEPSEEK_BALANCE_URL, {
+						headers: { Authorization: `Bearer ${key.trim()}` },
+						cache: "no-store",
+						signal: AbortSignal.timeout(10000)
+					});
+					if (res.status === 401) {
+						gesture("fail");
+						show("🔑 key 无效或已失效，重新输入试试", 5000, { label: "换 key", fn: () => openKeyCard() });
+						return;
+					}
+					if (!res.ok) {
+						gesture("fail");
+						show(`查询失败（${res.status}），稍后再试`, 4500);
+						return;
+					}
+					const data = await res.json();
+					gesture("jump");
+					emitHearts(6);
+					show(balanceText(data), 7000, { label: "刷新", fn: () => queryBalance() });
+				} catch {
+					gesture("fail");
+					show("连不上 DeepSeek，检查网络后再试", 4500);
+				}
+			}
+
+			/** Format the /user/balance response into a bubble-friendly card. */
+			function balanceText(data) {
+				if (!data || typeof data !== "object") return "查询结果有点怪…再试一次？";
+				if (data.is_available === false) return "💸 余额不足，无法调用 API";
+				const infos = Array.isArray(data.balance_infos) ? data.balance_infos : [];
+				if (infos.length === 0) return "💰 账户暂无余额信息";
+				const lines = infos.map((info) => {
+					const symbol = info.currency === "CNY" ? "¥" : "$";
+					const parts = [`${symbol}${info.total_balance ?? "?"}`];
+					const extra = [];
+					if (info.granted_balance !== void 0) extra.push(`赠金 ${symbol}${info.granted_balance}`);
+					if (info.topped_up_balance !== void 0) extra.push(`充值 ${symbol}${info.topped_up_balance}`);
+					if (extra.length > 0) parts.push(`（${extra.join(" · ")}）`);
+					return `💰 余额 ${parts.join(" ")}`;
+				});
+				return lines.join("\n");
+			}
+
+			/**
+			 * Show an inline key-entry card above the pet. On save the key is
+			 * stored in localStorage and the balance is queried immediately.
+			 */
+			function openKeyCard(hint) {
+				closeKeyCard();
+				const card = document.createElement("div");
+				card.className = "bwm-keycard";
+				card.dataset.bwmKeycard = "1";
+				const label = document.createElement("span");
+				label.className = "bwm-keycard-label";
+				label.textContent = "DeepSeek API Key";
+				const hintEl = document.createElement("span");
+				hintEl.className = "bwm-keycard-hint";
+				hintEl.textContent = hint ?? "只存在本机浏览器 localStorage，不写入日志，随时可换。";
+				const input = document.createElement("input");
+				input.type = "password";
+				input.placeholder = "sk-…";
+				input.autocomplete = "off";
+				input.spellcheck = false;
+				const actions = document.createElement("div");
+				actions.className = "bwm-keycard-actions";
+				const save = document.createElement("button");
+				save.className = "bwm-keycard-save";
+				save.textContent = "保存并查询";
+				const cancel = document.createElement("button");
+				cancel.className = "bwm-keycard-cancel";
+				cancel.textContent = "取消";
+				actions.append(save, cancel);
+				card.append(label, hintEl, input, actions);
+				root.appendChild(card);
+				const commit = () => {
+					const value = input.value.trim();
+					if (value.length === 0) {
+						input.focus();
+						return;
+					}
+					try {
+						localStorage.setItem(STORE_KEY_DEEPSEEK, value);
+					} catch { /* storage unavailable — still try the query */ }
+					closeKeyCard();
+					queryBalance();
+				};
+				save.addEventListener("click", (ev) => {
+					ev.stopPropagation();
+					commit();
+				});
+				cancel.addEventListener("click", (ev) => {
+					ev.stopPropagation();
+					closeKeyCard();
+				});
+				input.addEventListener("keydown", (ev) => {
+					ev.stopPropagation();
+					if (ev.key === "Enter") commit();
+					else if (ev.key === "Escape") closeKeyCard();
+				});
+				setTimeout(() => input.focus(), 30);
+			}
+
+			function closeKeyCard() {
+				const card = root.querySelector(".bwm-keycard");
+				if (card) card.remove();
 			}
 
 			function setState(next) {
@@ -483,11 +629,13 @@ window.__ModuleLoader__.load({
 			// ----------------------------------------------------- pointer
 			function onPointerDown(ev) {
 				if (ev.button !== 0 || disposed) return;
-				// Bubble action buttons own their clicks: when the press starts
-				// on a .bwm-bubble-action button, don't preventDefault / capture
-				// the pointer / start a drag — that would swallow the button's
-				// click and the "去看看" jump would never fire.
-				if (ev.target instanceof Element && ev.target.closest(".bwm-bubble-action")) return;
+				// Bubble action buttons and the key card own their clicks: when
+				// the press starts on them, don't preventDefault / capture the
+				// pointer / start a drag — that would swallow their click and
+				// the "去看看" jump / key input would never work.
+				if (ev.target instanceof Element && ev.target.closest(".bwm-bubble-action, .bwm-keycard")) return;
+				// pressing the pet itself dismisses an open key card
+				closeKeyCard();
 				ev.preventDefault();
 				root.setPointerCapture?.(ev.pointerId);
 				dragging = true;
@@ -545,7 +693,7 @@ window.__ModuleLoader__.load({
 						lastClickAt = now;
 						gesture("wave");
 						emitHearts(3);
-						show(pick(LINES.wave), 3000);
+						show(pick(LINES.wave), 6000, { label: BALANCE_ACTION_LABEL, fn: () => queryBalance() });
 					}
 				} else {
 					show(pick(LINES.pickup), 2000);
@@ -579,6 +727,7 @@ window.__ModuleLoader__.load({
 				dispose() {
 					disposed = true;
 					cancelAnimationFrame(raf);
+					closeKeyCard();
 					root.removeEventListener("pointerdown", onPointerDown);
 					root.removeEventListener("pointermove", onPointerMove);
 					root.removeEventListener("pointerup", onPointerUp);
@@ -660,7 +809,9 @@ window.__ModuleLoader__.load({
 						});
 						b.appendChild(btn);
 					}
-					hideSoon(ms ?? 3000);
+					// ms === 0 keeps the bubble up until the next show() replaces
+					// it (used for the query-in-progress state).
+					if (ms !== 0) hideSoon(ms ?? 3000);
 				};
 				return showFn;
 			}, []);
