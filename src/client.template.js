@@ -110,6 +110,7 @@ window.__ModuleLoader__.load({
 				"今天也要加油哦！",
 				"有啥事快说，我听着呢~",
 				"鲸尾摇摇，心情好好~",
+				"刚打了个盹，正好醒~",
 				// —— DeepSeek 梗 ——
 				"我是鲸鱼女仆，不是鲨鱼啊喂~",
 				"深度求索，也求你摸摸~",
@@ -129,9 +130,9 @@ window.__ModuleLoader__.load({
 				"成了！这一跳震撼华尔街~",
 				"深夜更新？不，是深夜庆祝！"
 			],
-			done: (t) => `「${t}」完成啦！辛苦啦~`,
+			done: (t, dur) => `「${t}」完成啦！跑了 ${dur}~`,
 			doneExtra: (n) => `还有 ${n} 个任务也完成了`,
-			failed: (t) => `「${t}」好像出了点问题…`,
+			failed: (t, dur) => `「${t}」跑了 ${dur} 后出问题了…`,
 			workStart: (t) => `收到！去忙「${t}」啦~`,
 			workProgress: (t) => `还在忙「${t}」…`,
 			jobProgress: (j) => `正在跑「${j}」…`,
@@ -164,6 +165,87 @@ window.__ModuleLoader__.load({
 		const STORE_KEY_POS = "dsh-blue-whale-maid:pos";
 		const STORE_KEY_HIDDEN = "dsh-blue-whale-maid:hidden";
 		const STORE_KEY_CREDITED = "dsh-blue-whale-maid:credited";
+		const STORE_KEY_COMPANION = "dsh-blue-whale-maid:companion";
+
+		// Companion growth: purely local counters (no content, no credentials).
+		const COMPANION_LEVELS = [
+			{ min: 0, name: "小鲸鱼", lines: ["嗯？叫我干嘛~", "在呢在呢~"] },
+			{ min: 10, name: "伙伴", lines: ["嘿，今天也一起加油！", "有我在，放心干~"] },
+			{ min: 30, name: "挚友", lines: ["老搭档了，默契~", "一个眼神就懂你~"] },
+			{ min: 60, name: "深海羁绊", lines: ["这辈子就认你这个主人了~", "深海之下，也听得到你的声音~"] }
+		];
+		// Long-running nudge: warn when a session has been running this long.
+		const LONG_RUN_MS = 5 * 60 * 1000;
+		const NUDGE_INTERVAL_MS = 3 * 60 * 1000;
+
+		// Format a duration as "3 分 42 秒" / "1 小时 5 分" / "45 秒".
+		const fmtDur = (ms) => {
+			const s = Math.round(ms / 1000);
+			if (s < 60) return `${s} 秒`;
+			const m = Math.floor(s / 60);
+			const sec = s % 60;
+			if (m < 60) return sec > 0 ? `${m} 分 ${sec} 秒` : `${m} 分`;
+			const h = Math.floor(m / 60);
+			const min = m % 60;
+			return min > 0 ? `${h} 小时 ${min} 分` : `${h} 小时`;
+		};
+
+		// Tiny Web-Audio success chime (no files, no system commands).
+		let audioCtx = null;
+		function ensureAudio() {
+			try {
+				if (audioCtx === null) {
+					const AC = window.AudioContext || window.webkitAudioContext;
+					if (AC) audioCtx = new AC();
+				}
+				if (audioCtx && audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
+				return audioCtx;
+			} catch {
+				return null;
+			}
+		}
+		function playChime() {
+			const actx = ensureAudio();
+			if (!actx) return;
+			try {
+				const now = actx.currentTime;
+				const notes = [880, 1108.73, 1318.51]; // A5, C#6, E6 — bright major arpeggio
+				for (let i = 0; i < notes.length; i++) {
+					const osc = actx.createOscillator();
+					const gain = actx.createGain();
+					osc.type = "sine";
+					osc.frequency.value = notes[i];
+					gain.gain.setValueAtTime(0.0001, now + i * 0.09);
+					gain.gain.exponentialRampToValueAtTime(0.12, now + i * 0.09 + 0.02);
+					gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.09 + 0.5);
+					osc.connect(gain).connect(actx.destination);
+					osc.start(now + i * 0.09);
+					osc.stop(now + i * 0.09 + 0.55);
+				}
+			} catch { /* audio unavailable — silence is fine */ }
+		}
+
+		// Companion counter (local-only, no content).
+		function readCompanion() {
+			try {
+				const raw = JSON.parse(localStorage.getItem(STORE_KEY_COMPANION));
+				if (raw && typeof raw.score === "number") return { score: raw.score };
+			} catch { /* ignore */ }
+			return { score: 0 };
+		}
+		function addCompanion(n) {
+			const cur = readCompanion();
+			const score = Math.min(100, cur.score + n);
+			try {
+				localStorage.setItem(STORE_KEY_COMPANION, JSON.stringify({ score }));
+			} catch { /* storage unavailable — session-only growth */ }
+			return score;
+		}
+		function companionLevel(score) {
+			let level = COMPANION_LEVELS[0];
+			for (const l of COMPANION_LEVELS) if (score >= l.min) level = l;
+			return level;
+		}
 
 		// Pixel heart (6x7) drawn with fillRect.
 		const HEART = [
@@ -222,6 +304,12 @@ window.__ModuleLoader__.load({
 			// completion notifications waiting to be shown
 			const notifyQueue = [];
 			let notifyShowingUntil = 0;
+			// nap (all-idle) state: true while every session is quiet
+			let napping = false;
+			let wasNapping = false;
+			let napSince = 0;
+			let nextNapZAt = 0;
+			const napZ = []; // floating "z" particles { x, y, vy, life, ttl, size }
 
 			const stateDef = () => STATES[state] ?? STATES.idle;
 
@@ -282,9 +370,9 @@ window.__ModuleLoader__.load({
 			}
 
 			// ------------------------------------------- notifications
-			function pushNotify(kind, sessionId, title) {
+			function pushNotify(kind, sessionId, title, durationMs) {
 				if (notifyQueue.length >= 5) return; // drop oldest-flow noise
-				notifyQueue.push({ kind, sessionId, title });
+				notifyQueue.push({ kind, sessionId, title, durationMs });
 			}
 
 			/** Show the next queued completion notification, if any. */
@@ -297,14 +385,21 @@ window.__ModuleLoader__.load({
 				const action = !isCurrent && openSession
 					? { label: GO_LOOK_LABEL, fn: () => openSession(item.sessionId) }
 					: undefined;
+				const dur = typeof item.durationMs === "number" ? fmtDur(item.durationMs) : "";
 				if (item.kind === "failed") {
 					gesture("fail");
-					show(LINES.failed(truncate(item.title, 20)), 6000, action);
+					show(LINES.failed(truncate(item.title, 20), dur), 6000, action);
 				} else {
 					gesture("jump");
 					emitHearts(6);
-					let text = LINES.done(truncate(item.title, 20));
+					playChime();
+					const score = addCompanion(1);
+					const level = companionLevel(score);
+					let text = LINES.done(truncate(item.title, 20), dur);
 					if (notifyQueue.length > 0) text += `\n${LINES.doneExtra(notifyQueue.length)}`;
+					if (level.min > 0 && (score === level.min || score === level.min + 1)) {
+						text += `\n（${level.name}·${score}）`;
+					}
 					show(text, 6000, action);
 				}
 			}
@@ -325,7 +420,12 @@ window.__ModuleLoader__.load({
 					if (r.running && (!prev || !prev.running)) {
 						prevRun.set(r.id, { running: true, since: now });
 						if (r.id === sig.current && !r.blank) {
-							show(LINES.workStart(truncate(r.title, 18)), 3200);
+							// level-aware work-start line
+							const lvl = companionLevel(readCompanion().score);
+							const line = lvl.lines.length > 0
+								? `${lvl.lines[0]} 去忙「${truncate(r.title, 18)}」啦~`
+								: LINES.workStart(truncate(r.title, 18));
+							show(line, 3200);
 							nextLineAt = now + rand(30000, 50000);
 						}
 					} else if (!r.running && prev && prev.running) {
@@ -334,12 +434,28 @@ window.__ModuleLoader__.load({
 						prevRun.set(r.id, { running: false, since: 0 });
 						if (duration > 3000 && !r.blank) {
 							const failedJob = (r.jobs ?? []).some((j) => j && j.status === "failed");
-							pushNotify(failedJob ? "failed" : "done", r.id, r.title ?? r.id);
+							pushNotify(failedJob ? "failed" : "done", r.id, r.title ?? r.id, duration);
 						}
 					}
 				}
 				for (const [id, prev] of prevRun) {
 					if (!rowsById.has(id)) prevRun.delete(id);
+				}
+
+				// ---- long-running nudge: a session running a long time gets a
+				// gentle "still going?" bubble (never asserts it is stuck).
+				if (!dragging && notifyQueue.length === 0) {
+					for (const [id, prev] of prevRun) {
+						if (!prev.running) continue;
+						const elapsed = now - (prev.since ?? now);
+						if (elapsed > LONG_RUN_MS && now - (prev.lastNudgeAt ?? 0) > NUDGE_INTERVAL_MS) {
+							prev.lastNudgeAt = now;
+							const row = rowsById.get(id);
+							const t = row ? truncate(row.title ?? row.id, 18) : "…";
+							show(`「${t}」跑了 ${fmtDur(elapsed)} 了，还在忙呢，要看看吗？`, 5000);
+							break;
+						}
+					}
 				}
 
 				// ---- pump queued notifications first (they own the bubble)
@@ -365,6 +481,7 @@ window.__ModuleLoader__.load({
 				const anyRunning = runningIds.size > 0;
 				const anyPending = sig.rows.some((r) => r && !!r.pendingInteraction);
 				const pendingRow = sig.rows.find((r) => r && !!r.pendingInteraction);
+				if ((anyRunning || anyPending) && napping) napping = false;
 
 				if (anyPending) {
 					// a session is blocked on a user question → waiting
@@ -405,9 +522,31 @@ window.__ModuleLoader__.load({
 						else if (currentRow) show(LINES.workProgress(truncate(currentRow.title ?? currentRow.id, 20)), 3200);
 					}
 				} else {
-					// all quiet — nothing to do beyond idle loiter
+					// all quiet — nap time when nothing at all is running
+					if (!napping && !dragging && notifyQueue.length === 0 && !once && state === "idle") {
+						napping = true;
+						napSince = now;
+						nextNapZAt = now + rand(1200, 2600);
+					}
+					if (napping && now - napSince > 4000 && state === "idle") {
+						// after a nap's worth of quiet, drift into look-around loiter
+						napping = false;
+						nextActionAt = now + rand(3000, 8000);
+					}
+					if (napping && now >= nextNapZAt) {
+						nextNapZAt = now + rand(2200, 4200);
+						napZ.push({
+							x: 104 + rand(-8, 10),
+							y: 44 + rand(-6, 4),
+							vy: rand(10, 18),
+							life: 0,
+							ttl: rand(1600, 2400),
+							size: rand(7, 11)
+						});
+						if (napZ.length > 6) napZ.shift();
+					}
 					// idle loiter: look around or run in place — never wander
-					if (!dragging && !once && transientUntil === 0 && state === "idle" && now >= nextActionAt) {
+					if (!napping && !dragging && !once && transientUntil === 0 && state === "idle" && now >= nextActionAt) {
 						nextActionAt = now + rand(8000, 20000);
 						const roll = Math.random();
 						if (roll < 0.3) gesture(roll < 0.15 ? "lookA" : "lookB");
@@ -434,6 +573,13 @@ window.__ModuleLoader__.load({
 					hh.life += dt;
 					hh.y -= (hh.vy * dt) / 1000;
 					if (hh.life >= hh.ttl) hearts.splice(i, 1);
+				}
+				// nap "z" particles physics
+				for (let i = napZ.length - 1; i >= 0; i--) {
+					const z = napZ[i];
+					z.life += dt;
+					z.y -= (z.vy * dt) / 1000;
+					if (z.life >= z.ttl) napZ.splice(i, 1);
 				}
 			}
 
@@ -469,6 +615,17 @@ window.__ModuleLoader__.load({
 					}
 					ctx.globalAlpha = 1;
 				}
+				// nap "z" particles (only while napping)
+				if (napping) {
+					for (const z of napZ) {
+						const alpha = 1 - z.life / z.ttl;
+						ctx.globalAlpha = alpha * 0.85;
+						ctx.fillStyle = "#64748b";
+						ctx.font = `bold ${z.size}px -apple-system, "PingFang SC", sans-serif`;
+						ctx.fillText("z", z.x, z.y);
+					}
+					ctx.globalAlpha = 1;
+				}
 			}
 
 			function loop(now) {
@@ -488,6 +645,9 @@ window.__ModuleLoader__.load({
 				// the pointer / start a drag — that would swallow the button's
 				// click and the "去看看" jump would never fire.
 				if (ev.target instanceof Element && ev.target.closest(".bwm-bubble-action")) return;
+				// touching the pet wakes her from a nap
+				wasNapping = napping;
+				if (napping) { napping = false; napZ.length = 0; }
 				ev.preventDefault();
 				root.setPointerCapture?.(ev.pointerId);
 				dragging = true;
@@ -540,16 +700,20 @@ window.__ModuleLoader__.load({
 						lastClickAt = null;
 						gesture("jump");
 						emitHearts(6);
+						addCompanion(1);
 						show(pick(LINES.jump), 3200);
 					} else {
 						lastClickAt = now;
 						gesture("wave");
 						emitHearts(3);
-						show(pick(LINES.wave), 3000);
+						if (wasNapping) show("呼啊……醒啦！刚才梦到小鱼干山了~", 3600);
+						else show(pick(LINES.wave), 3000);
+						wasNapping = false;
 					}
 				} else {
 					show(pick(LINES.pickup), 2000);
 					setState("idle");
+					wasNapping = false;
 				}
 			}
 
