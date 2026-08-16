@@ -93,6 +93,12 @@ window.__ModuleLoader__.load({
   font:12px/1 -apple-system,"PingFang SC",sans-serif;cursor:pointer;
   box-shadow:0 2px 8px rgba(15,23,42,.10);pointer-events:auto}
 .bwm-restore:hover{background:#eff6ff}
+.bwm-balance-btn{position:absolute;right:-6px;bottom:6px;width:26px;height:26px;border:0;border-radius:50%;
+  background:#6366f1;color:#fff;font:14px/26px sans-serif;text-align:center;cursor:pointer;
+  box-shadow:0 2px 8px rgba(79,70,229,.4);padding:0;line-height:26px;
+  transition:transform .12s,background .12s;z-index:1501}
+.bwm-balance-btn:hover{background:#4f46e5;transform:scale(1.12)}
+.bwm-balance-btn:active{transform:scale(.95)}
 @media (prefers-reduced-motion: reduce){.bwm-bubble{transition:none}}
 `;
 		const CSS_TAG_ID = "dsh-blue-whale-maid/styles";
@@ -281,7 +287,6 @@ window.__ModuleLoader__.load({
 		// ---- DeepSeek account info (via host routes; key never leaves host)
 		const BALANCE_ROUTE = "/api/blue-whale-maid/balance";
 		const SESSION_COST_ROUTE = "/api/blue-whale-maid/session-cost";
-		const BALANCE_ACTION_LABEL = "💰 余额";
 
 		const fmtMoney = (value, currency) => {
 			const symbol = currency === "USD" ? "$" : "¥";
@@ -766,11 +771,10 @@ window.__ModuleLoader__.load({
 
 			function onPointerDown(ev) {
 				if (ev.button !== 0 || disposed) return;
-				// Bubble action buttons own their clicks: when the press starts
-				// on a .bwm-bubble-action button, don't preventDefault / capture
-				// the pointer / start a drag — that would swallow the button's
-				// click and the "去看看" jump would never fire.
-				if (ev.target instanceof Element && ev.target.closest(".bwm-bubble-action")) return;
+				// Bubble action buttons and the balance icon own their clicks:
+				// when the press starts on them, don't preventDefault / capture
+				// the pointer / start a drag — that would swallow their click.
+				if (ev.target instanceof Element && ev.target.closest(".bwm-bubble-action, .bwm-balance-btn")) return;
 				// touching the pet wakes her from a nap
 				wasNapping = napping;
 				if (napping) { napping = false; napZ.length = 0; }
@@ -832,8 +836,8 @@ window.__ModuleLoader__.load({
 						lastClickAt = now;
 						gesture("wave");
 						emitHearts(3);
-						if (wasNapping) show("呼啊……醒啦！刚才梦到小鱼干山了~", 5000, { action: { label: BALANCE_ACTION_LABEL, fn: () => queryAccount() } });
-						else show(pick(LINES.wave), 4000, { action: { label: BALANCE_ACTION_LABEL, fn: () => queryAccount() } });
+						if (wasNapping) show("呼啊……醒啦！刚才梦到小鱼干山了~", 3600);
+						else show(pick(LINES.wave), 3000);
 						wasNapping = false;
 					}
 				} else {
@@ -866,6 +870,7 @@ window.__ModuleLoader__.load({
 			raf = requestAnimationFrame(loop);
 
 			return {
+				queryAccount,
 				dispose() {
 					disposed = true;
 					cancelAnimationFrame(raf);
@@ -1048,6 +1053,19 @@ window.__ModuleLoader__.load({
 				},
 				h("div", { ref: bubbleRef, className: "bwm-bubble" }),
 				h("canvas", { ref: canvasRef, width: 192, height: 208 }),
+				h(
+					"button",
+					{
+						className: "bwm-balance-btn",
+						title: "DeepSeek 余额",
+						"aria-label": "DeepSeek 余额",
+						onClick: (ev) => {
+							ev.stopPropagation();
+							engineRef.current?.queryAccount();
+						}
+					},
+					"💰"
+				),
 				hide
 			);
 		}
