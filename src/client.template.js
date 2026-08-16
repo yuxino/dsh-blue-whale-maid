@@ -71,11 +71,6 @@ window.__ModuleLoader__.load({
 .bwm-balance-row-label{color:#8b93c0}
 .bwm-balance-row-value{font-variant-numeric:tabular-nums;color:#3c3f66}
 .bwm-balance-card .bwm-bubble-meta{margin-top:3px}
-.bwm-bubble-close{position:absolute;top:6px;right:6px;width:18px;height:18px;border:0;border-radius:50%;
-  background:rgba(139,147,192,.2);color:#6b74a8;font:11px/18px sans-serif;text-align:center;
-  cursor:pointer;opacity:0;transition:opacity .15s;padding:0;line-height:18px}
-.bwm-bubble:hover .bwm-bubble-close{opacity:1}
-.bwm-bubble-close:hover{background:rgba(220,38,38,.85);color:#fff}
 .bwm-bubble-action{margin-top:8px;display:inline-block;border:0;border-radius:9px;padding:5px 14px;
   background:linear-gradient(180deg,#4d5ab5 0%,#4854a6 100%);color:#fff;
   font:600 12px/1.6 inherit;cursor:pointer;transition:filter .12s}
@@ -105,12 +100,13 @@ window.__ModuleLoader__.load({
   font:12px/1 -apple-system,"PingFang SC",sans-serif;cursor:pointer;
   box-shadow:0 2px 8px rgba(72,84,166,.12);pointer-events:auto}
 .bwm-restore:hover{background:#eef1fb}
-.bwm-balance-btn{position:absolute;right:-6px;bottom:6px;width:26px;height:26px;border:0;border-radius:50%;
-  background:linear-gradient(180deg,#5a68c8 0%,#4854a6 100%);color:#fff;
-  font:14px/26px sans-serif;text-align:center;cursor:pointer;
-  box-shadow:0 2px 10px rgba(72,84,166,.45);padding:0;line-height:26px;
-  transition:transform .12s,filter .12s;z-index:1501}
-.bwm-balance-btn:hover{filter:brightness(1.15);transform:scale(1.12)}
+.bwm-balance-btn{position:absolute;right:2px;bottom:2px;width:22px;height:22px;border:1px solid rgba(72,84,166,.35);
+  border-radius:6px;background:rgba(255,255,255,.9);color:#4854a6;
+  font:700 13px/20px -apple-system,"PingFang SC",sans-serif;text-align:center;cursor:pointer;
+  box-shadow:0 1px 4px rgba(72,84,166,.18);padding:0;line-height:20px;
+  opacity:.55;transition:opacity .15s,transform .12s,box-shadow .15s;z-index:1501}
+.bwm-root:hover .bwm-balance-btn{opacity:1}
+.bwm-balance-btn:hover{opacity:1;transform:scale(1.1);box-shadow:0 2px 8px rgba(72,84,166,.3)}
 .bwm-balance-btn:active{transform:scale(.95)}
 @media (prefers-reduced-motion: reduce){.bwm-bubble{transition:none}}
 `;
@@ -1044,16 +1040,6 @@ window.__ModuleLoader__.load({
 						span.textContent = text;
 						b.appendChild(span);
 					}
-					// manual close (✕)
-					const close = document.createElement("button");
-					close.className = "bwm-bubble-close";
-					close.textContent = "\u00d7";
-					close.setAttribute("aria-label", "关闭气泡");
-					close.addEventListener("click", (ev) => {
-						ev.stopPropagation();
-						hide();
-					});
-					b.appendChild(close);
 					if (action) {
 						const btn = document.createElement("button");
 						btn.className = "bwm-bubble-action";
@@ -1136,7 +1122,7 @@ window.__ModuleLoader__.load({
 							engineRef.current?.queryAccount();
 						}
 					},
-					"💰"
+					"¥"
 				),
 				hide
 			);
