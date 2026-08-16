@@ -308,8 +308,8 @@ window.__ModuleLoader__.load({
 			const currency = info.currency ?? "CNY";
 			const body = [];
 			const extra = [];
-			if (info.granted_balance !== void 0) extra.push(`赠金 ${fmtMoney(Number(info.granted_balance), currency)}`);
 			if (info.topped_up_balance !== void 0) extra.push(`充值 ${fmtMoney(Number(info.topped_up_balance), currency)}`);
+			if (info.granted_balance !== void 0) extra.push(`赠金 ${fmtMoney(Number(info.granted_balance), currency)}`);
 			if (extra.length > 0) body.push(extra.join(" · "));
 			if (typeof todayConsumed === "number" && Number.isFinite(todayConsumed)) {
 				body.push(`今日约消费 ≈${fmtMoney(todayConsumed, currency)}`);
