@@ -61,6 +61,16 @@ window.__ModuleLoader__.load({
   color:#3c3f66;margin-bottom:2px}
 .bwm-bubble-meta{display:block;color:#8b93c0;font-size:11px;line-height:1.6}
 .bwm-bubble-body{display:block;color:#334155}
+.bwm-balance-card{display:flex;flex-direction:column;gap:2px;min-width:150px}
+.bwm-balance-label{color:#8b93c0;font-size:11px;line-height:1.4}
+.bwm-balance-value{color:#4854a6;font:700 26px/1.25 -apple-system,"PingFang SC",sans-serif;
+  letter-spacing:-.5px;margin:2px 0 4px}
+.bwm-balance-divider{height:1px;background:linear-gradient(90deg,#d8def5,#eef1fb);margin:4px 0}
+.bwm-balance-row{display:flex;justify-content:space-between;gap:16px;
+  font-size:12px;line-height:1.7;color:#475569}
+.bwm-balance-row-label{color:#8b93c0}
+.bwm-balance-row-value{font-variant-numeric:tabular-nums;color:#3c3f66}
+.bwm-balance-card .bwm-bubble-meta{margin-top:3px}
 .bwm-bubble-close{position:absolute;top:6px;right:6px;width:18px;height:18px;border:0;border-radius:50%;
   background:rgba(139,147,192,.2);color:#6b74a8;font:11px/18px sans-serif;text-align:center;
   cursor:pointer;opacity:0;transition:opacity .15s;padding:0;line-height:18px}
@@ -306,15 +316,16 @@ window.__ModuleLoader__.load({
 			const info = infos[0];
 			if (!info) return { title: "💰 账户暂无余额信息" };
 			const currency = info.currency ?? "CNY";
-			const body = [];
-			const extra = [];
-			if (info.topped_up_balance !== void 0) extra.push(`充值 ${fmtMoney(Number(info.topped_up_balance), currency)}`);
-			if (info.granted_balance !== void 0) extra.push(`赠金 ${fmtMoney(Number(info.granted_balance), currency)}`);
-			if (extra.length > 0) body.push(extra.join(" · "));
+			const rows = [];
+			if (info.topped_up_balance !== void 0) rows.push({ label: "充值", value: fmtMoney(Number(info.topped_up_balance), currency) });
+			if (info.granted_balance !== void 0) rows.push({ label: "赠金", value: fmtMoney(Number(info.granted_balance), currency) });
 			if (typeof todayConsumed === "number" && Number.isFinite(todayConsumed)) {
-				body.push(`今日约消费 ≈${fmtMoney(todayConsumed, currency)}`);
+				rows.push({ label: "今日约消费", value: `≈${fmtMoney(todayConsumed, currency)}` });
 			}
-			return { title: `💰 余额 ${fmtMoney(Number(info.total_balance), currency)}`, body: body.join("\n") || undefined };
+			return {
+				balance: { label: "账户余额", value: fmtMoney(Number(info.total_balance), currency) },
+				rows
+			};
 		}
 
 		/**
@@ -781,8 +792,8 @@ window.__ModuleLoader__.load({
 				const cost = fmtCost(sessionCost);
 				show(
 					{
-						title: content.title,
-						body: content.body,
+						balance: content.balance,
+						rows: content.rows,
 						meta: cost !== null ? `本会话已用 ${cost}` : undefined
 					},
 					10000,
@@ -972,23 +983,61 @@ window.__ModuleLoader__.load({
 					b.textContent = "";
 					b.className = "bwm-bubble bwm-on" + (action ? " bwm-action" : "") + kind;
 					if (typeof text === "object" && text !== null) {
-						if (text.title !== undefined) {
-							const t = document.createElement("span");
-							t.className = "bwm-bubble-title";
-							t.textContent = text.title;
-							b.appendChild(t);
-						}
-						if (text.meta !== undefined) {
-							const m = document.createElement("span");
-							m.className = "bwm-bubble-meta";
-							m.textContent = text.meta;
-							b.appendChild(m);
-						}
-						if (text.body !== undefined) {
-							const d = document.createElement("span");
-							d.className = "bwm-bubble-body";
-							d.textContent = text.body;
-							b.appendChild(d);
+						if (text.balance !== undefined) {
+							// balance card: label → big value → divider → rows → meta
+							const card = document.createElement("div");
+							card.className = "bwm-balance-card";
+							const label = document.createElement("span");
+							label.className = "bwm-balance-label";
+							label.textContent = text.balance.label;
+							card.appendChild(label);
+							const value = document.createElement("span");
+							value.className = "bwm-balance-value";
+							value.textContent = text.balance.value;
+							card.appendChild(value);
+							if (Array.isArray(text.rows) && text.rows.length > 0) {
+								const div = document.createElement("div");
+								div.className = "bwm-balance-divider";
+								card.appendChild(div);
+								for (const row of text.rows) {
+									const r = document.createElement("div");
+									r.className = "bwm-balance-row";
+									const rl = document.createElement("span");
+									rl.className = "bwm-balance-row-label";
+									rl.textContent = row.label;
+									const rv = document.createElement("span");
+									rv.className = "bwm-balance-row-value";
+									rv.textContent = row.value;
+									r.append(rl, rv);
+									card.appendChild(r);
+								}
+							}
+							if (text.meta !== undefined) {
+								const m = document.createElement("span");
+								m.className = "bwm-bubble-meta";
+								m.textContent = text.meta;
+								card.appendChild(m);
+							}
+							b.appendChild(card);
+						} else {
+							if (text.title !== undefined) {
+								const t = document.createElement("span");
+								t.className = "bwm-bubble-title";
+								t.textContent = text.title;
+								b.appendChild(t);
+							}
+							if (text.meta !== undefined) {
+								const m = document.createElement("span");
+								m.className = "bwm-bubble-meta";
+								m.textContent = text.meta;
+								b.appendChild(m);
+							}
+							if (text.body !== undefined) {
+								const d = document.createElement("span");
+								d.className = "bwm-bubble-body";
+								d.textContent = text.body;
+								b.appendChild(d);
+							}
 						}
 					} else {
 						const span = document.createElement("span");
