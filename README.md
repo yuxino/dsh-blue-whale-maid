@@ -22,13 +22,20 @@
 dsh plugin --profile web add github:yuxino/dsh-blue-whale-maid
 ```
 
-重启 `dsh web` 后刷新页面即可。
+首次安装后需重启 `dsh web`（loader 要重新组合 bundle）再刷新页面。
 
 悬停宠物可临时隐藏；卸载：
 
 ```sh
 dsh plugin --profile web remove dsh-blue-whale-maid
 ```
+
+## 更新
+
+日常更新**无需重启**：插件包更新后，DSH 的客户端 HMR 会在约 1 秒内自动热更到新版本（浏览器收到 `rebuilt` 帧自动重载）。只有新增/移除 bundle 注册这类结构性变化才需要重启。
+
+- 从 GitHub 拉取最新版：`dsh plugin --profile web add github:yuxino/dsh-blue-whale-maid`（重复执行会刷新到最新）
+- 本地开发改代码：见下方「开发」章节
 
 ## 开发
 
@@ -37,7 +44,7 @@ node tools/embed.mjs          # 把精灵图内联进 lib/client.js（源码模�
 ./tools/sync-profile.sh       # 把新产物同步进已安装的 profile 副本
 ```
 
-改完 `lib/client.js` 后，DSH 的客户端 HMR 会在约 1 秒内自动热更——**无需重启 `dsh web`，也无需刷新页面**。
+改完 `lib/client.js` 后，DSH 的客户端 HMR（`dsh-client-hmr`，约 500ms 轮询 bundle 文件）会在约 1 秒内自动热更——**无需重启 `dsh web`，也无需刷新页面**。
 
 > 为什么需要 `sync-profile.sh`：`dsh plugin add` 会把插件以 *副本*（file: 依赖）形式装进 `node_modules`，改源仓库的文件不会同步到副本，HMR 因此看不到变化。该脚本只是把产物复制进副本，触发 HMR 轮询检测。默认同步 `web` profile，可 `DSH_PROFILE=<name>` 指定。
 
