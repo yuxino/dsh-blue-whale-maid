@@ -32,10 +32,18 @@ dsh plugin --profile web remove dsh-blue-whale-maid
 
 ## 更新
 
-日常更新**无需重启**：插件包更新后，DSH 的客户端 HMR 会在约 1 秒内自动热更到新版本（浏览器收到 `rebuilt` 帧自动重载）。只有新增/移除 bundle 注册这类结构性变化才需要重启。
+更新到最新版（**先移除再添加**，直接重跑 `add` 不会拉新）：
 
-- 从 GitHub 拉取最新版：`dsh plugin --profile web add github:yuxino/dsh-blue-whale-maid`（重复执行会刷新到最新）
-- 本地开发改代码：见下方「开发」章节
+```sh
+dsh plugin --profile web remove dsh-blue-whale-maid
+dsh plugin --profile web add github:yuxino/dsh-blue-whale-maid
+```
+
+> 为什么必须移除再添加：插件以 `github:` 依赖安装，pnpm 按 spec 缓存，不会跟踪分支更新——重跑 `add` 或 `pnpm update` 都会显示 "Already up to date"。移除会清掉旧副本，重新添加才会重新克隆 `main` 拿到最新版。bundle 注册会自动对账（依赖解析到 `dsh.bundle` 即自动进 layer 列表），无需手动改配置。
+
+日常更新**无需重启**：插件包更新后，DSH 的客户端 HMR 会在约 1 秒内自动热更到新版本（浏览器收到 `rebuilt` 帧自动重载）。只有新增/移除 bundle 注册这类结构性变化才需要重启 `dsh web`。
+
+本地开发改代码：见下方「开发」章节。
 
 ## 开发
 
