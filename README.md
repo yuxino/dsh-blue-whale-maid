@@ -40,7 +40,7 @@ dsh plugin --profile web add github:yuxino/dsh-blue-whale-maid
 dsh plugin --profile web remove dsh-blue-whale-maid
 ```
 
-悬停宠物可临时隐藏；卸载后重启 `dsh web` 生效。
+卸载后重启 `dsh web` 生效。
 
 ## 开发
 
