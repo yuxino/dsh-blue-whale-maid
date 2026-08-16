@@ -33,10 +33,13 @@ dsh plugin --profile web remove dsh-blue-whale-maid
 ## 开发
 
 ```sh
-node tools/embed.mjs
+node tools/embed.mjs          # 把精灵图内联进 lib/client.js（源码模板在 src/client.template.js）
+./tools/sync-profile.sh       # 把新产物同步进已安装的 profile 副本
 ```
 
-`src/client.template.js` 是源码模板，命令会把精灵图内联到 `lib/client.js`。
+改完 `lib/client.js` 后，DSH 的客户端 HMR 会在约 1 秒内自动热更——**无需重启 `dsh web`，也无需刷新页面**。
+
+> 为什么需要 `sync-profile.sh`：`dsh plugin add` 会把插件以 *副本*（file: 依赖）形式装进 `node_modules`，改源仓库的文件不会同步到副本，HMR 因此看不到变化。该脚本只是把产物复制进副本，触发 HMR 轮询检测。默认同步 `web` profile，可 `DSH_PROFILE=<name>` 指定。
 
 ## Credits
 
