@@ -908,6 +908,19 @@ window.__ModuleLoader__.load({
 			root.addEventListener("pointerup", onPointerUp);
 			root.addEventListener("pointercancel", onPointerUp);
 
+			// refresh the balance badge when the page becomes visible again
+			// (tab switch back / window focus); the very first mount is handled
+			// by the mount-time silent fetch, so only fire after a hide cycle.
+			let seenHidden = false;
+			const onVisibility = () => {
+				if (document.hidden) {
+					seenHidden = true;
+					return;
+				}
+				if (seenHidden && !disposed) { try { queryAccount(true); } catch {} }
+			};
+			document.addEventListener("visibilitychange", onVisibility);
+
 			// initial position
 			try {
 				const saved = JSON.parse(localStorage.getItem(STORE_KEY_POS));
@@ -930,6 +943,8 @@ window.__ModuleLoader__.load({
 				dispose() {
 					disposed = true;
 					cancelAnimationFrame(raf);
+					clearTimeout(badgeTimer);
+					document.removeEventListener("visibilitychange", onVisibility);
 					root.removeEventListener("pointerdown", onPointerDown);
 					root.removeEventListener("pointermove", onPointerMove);
 					root.removeEventListener("pointerup", onPointerUp);
