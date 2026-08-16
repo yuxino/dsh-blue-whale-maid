@@ -167,23 +167,21 @@ window.__ModuleLoader__.load({
 				"成了！这一跳震撼华尔街~",
 				"深夜更新？不，是深夜庆祝！"
 			],
-			done: (t, dur) => `「${t}」完成啦！跑了 ${dur}~`,
-			doneExtra: (n) => `还有 ${n} 个任务也完成了`,
-			failed: (t, dur) => `「${t}」跑了 ${dur} 后出问题了…`,
 			workStart: (t) => `收到！去忙「${t}」啦~`,
-			workProgress: (t) => `还在忙「${t}」…`,
-			jobProgress: (j) => `正在跑「${j}」…`,
 			pending: [
 				(t) => `「${t}」等你拍板呢~`,
 				(t) => `「${t}」的问题不抢答，等你点头~`,
 				(t) => `「${t}」卡住了？别急，我盯着呢~`
 			],
 			busy: [
+				"努力干活中…",
+				"思考中，别打扰~",
+				"在攒 token 呢~",
 				"忙得很，鲸尾都摇出火星子了~",
-				"token 烧着呢，别催~",
 				"推理中，请稍候……",
 				"在深度求索，你在深度等我~"
 			],
+			workTitle: (t) => `在处理「${t}」呢~`,
 			switch: [
 				"换会话啦？我还在哦~",
 				"新会话，新气象！",
@@ -314,6 +312,21 @@ window.__ModuleLoader__.load({
 				body.push(`今日约消费 ≈${fmtMoney(todayConsumed, currency)}`);
 			}
 			return { title: `💰 余额 ${fmtMoney(Number(info.total_balance), currency)}`, body: body.join("\n") || undefined };
+		}
+
+		/**
+		 * A human-meaningful session title, or null. `displayTitle` falls back
+		 * to the cwd basename and then the session id — those are machine
+		 * labels, not things to read out loud. Only a real user-set title
+		 * (one that differs from the cwd basename and isn't an id) qualifies.
+		 */
+		function goodTitle(row) {
+			const t = row && typeof row.rawTitle === "string" ? row.rawTitle : void 0;
+			if (t === void 0 || t.trim().length < 2) return null;
+			if (/^session-|^sess-|^[0-9a-f]{8,}$/i.test(t)) return null;
+			const base = row && typeof row.cwd === "string" ? row.cwd.split(/[\\/]/).pop() : "";
+			if (base !== "" && t === base) return null;
+			return t.trim();
 		}
 
 		// Pixel heart (6x7) drawn with fillRect.
@@ -455,10 +468,11 @@ window.__ModuleLoader__.load({
 					? { label: GO_LOOK_LABEL, fn: () => openSession(item.sessionId) }
 					: undefined;
 				const dur = typeof item.durationMs === "number" ? fmtDur(item.durationMs) : "";
+				const named = item.title !== null && item.title !== undefined ? `「${truncate(item.title, 20)}」` : "";
 				if (item.kind === "failed") {
 					gesture("fail");
 					show(
-						{ title: `「${truncate(item.title, 20)}」出问题了…`, meta: dur ? `跑了 ${dur}` : undefined },
+						{ title: named ? `${named}出问题了…` : "有个任务出问题了…", meta: dur ? `跑了 ${dur}` : undefined },
 						9000,
 						{ action, kind: "failed" }
 					);
@@ -475,7 +489,7 @@ window.__ModuleLoader__.load({
 					}
 					show(
 						{
-							title: `「${truncate(item.title, 20)}」完成啦！`,
+							title: named ? `${named}完成啦！` : "有个任务完成啦！",
 							meta: dur ? `耗时 ${dur}` : undefined,
 							body: body || undefined
 						},
@@ -501,11 +515,13 @@ window.__ModuleLoader__.load({
 					if (r.running && (!prev || !prev.running)) {
 						prevRun.set(r.id, { running: true, since: now });
 						if (r.id === sig.current && !r.blank) {
-							// level-aware work-start line
+							// level-aware work-start line (name only good titles)
 							const lvl = companionLevel(readCompanion().score);
+							const gt = goodTitle(r);
+							const target = gt !== null ? truncate(gt, 18) : null;
 							const line = lvl.lines.length > 0
-								? `${lvl.lines[0]} 去忙「${truncate(r.title, 18)}」啦~`
-								: LINES.workStart(truncate(r.title, 18));
+								? (target !== null ? `${lvl.lines[0]} 去忙「${target}」啦~` : `${lvl.lines[0]} 有活干了~`)
+								: (target !== null ? LINES.workStart(target) : "收到！开工~");
 							show(line, 3200);
 							nextLineAt = now + rand(30000, 50000);
 						}
@@ -515,7 +531,7 @@ window.__ModuleLoader__.load({
 						prevRun.set(r.id, { running: false, since: 0 });
 						if (duration > 3000 && !r.blank) {
 							const failedJob = (r.jobs ?? []).some((j) => j && j.status === "failed");
-							pushNotify(failedJob ? "failed" : "done", r.id, r.title ?? r.id, duration);
+							pushNotify(failedJob ? "failed" : "done", r.id, goodTitle(r), duration);
 						}
 					}
 				}
@@ -532,8 +548,9 @@ window.__ModuleLoader__.load({
 						if (elapsed > LONG_RUN_MS && now - (prev.lastNudgeAt ?? 0) > NUDGE_INTERVAL_MS) {
 							prev.lastNudgeAt = now;
 							const row = rowsById.get(id);
-							const t = row ? truncate(row.title ?? row.id, 18) : "…";
-							show(`「${t}」跑了 ${fmtDur(elapsed)} 了，还在忙呢，要看看吗？`, 5000);
+							const gt = row ? goodTitle(row) : null;
+							const t = gt !== null ? `「${truncate(gt, 18)}」` : "有个任务";
+							show(`${t}跑了 ${fmtDur(elapsed)} 了，还在忙呢，要看看吗？`, 5000);
 							break;
 						}
 					}
@@ -577,11 +594,12 @@ window.__ModuleLoader__.load({
 					}
 					if (now >= nextLineAt) {
 						nextLineAt = now + rand(20000, 32000);
-						const t = pendingRow ? truncate(pendingRow.title ?? pendingRow.id, 18) : "…";
+						const gt = pendingRow ? goodTitle(pendingRow) : null;
 						const action = pendingRow && pendingRow.id !== sig.current && openSession
 							? { label: GO_LOOK_LABEL, fn: () => openSession(pendingRow.id) }
 							: undefined;
-						show({ title: pick(LINES.pending)(t) }, 6000, { action, kind: "wait" });
+						if (gt !== null) show({ title: pick(LINES.pending)(truncate(gt, 18)) }, 6000, { action, kind: "wait" });
+						else show({ title: "有个任务在等你拍板呢~" }, 6000, { action, kind: "wait" });
 					}
 				} else if (anyRunning) {
 					// the agent is working → codex-style running + occasional review
@@ -594,13 +612,13 @@ window.__ModuleLoader__.load({
 						nextHeartAt = now + rand(2200, 3800);
 						emitHearts(1);
 					}
-					// periodic "what I'm doing" bubble for the current session
+					// periodic "what I'm doing" bubble for the current session —
+					// say it like a colleague, never echo raw commands
 					if (now >= nextLineAt && notifyQueue.length === 0) {
-						nextLineAt = now + rand(35000, 55000);
-						const job = (currentRow?.jobs ?? []).find((j) => j && j.status === "running");
-						if (job && job.label) show(LINES.jobProgress(truncate(job.label, 26)), 3600);
-						else if (currentRow && Math.random() < 0.5) show(pick(LINES.busy), 3200);
-						else if (currentRow) show(LINES.workProgress(truncate(currentRow.title ?? currentRow.id, 20)), 3200);
+						nextLineAt = now + rand(40000, 70000);
+						const gt = goodTitle(currentRow);
+						if (gt !== null) show(LINES.workTitle(truncate(gt, 18)), 3600);
+						else show(pick(LINES.busy), 3200);
 					}
 				} else {
 					// all quiet — nap time when nothing at all is running
@@ -896,7 +914,7 @@ window.__ModuleLoader__.load({
 				}
 			});
 
-			// Session snapshot: rows carry title / running / completed /
+			// Session snapshot: rows carry title / cwd / running / completed /
 			// pendingInteraction / jobs; current marks the selected session.
 			const sig = props.useSessions
 				? props.useSessions((s) => {
@@ -905,6 +923,8 @@ window.__ModuleLoader__.load({
 					const rows = Object.values(byId).map((r) => ({
 						id: r && r.id,
 						title: r && (r.displayTitle ?? r.title),
+						rawTitle: r && r.title,
+						cwd: r && r.cwd,
 						running: !!(r && r.running),
 						completed: !!(r && r.completed),
 						blank: !!(r && r.blank),
