@@ -1,6 +1,15 @@
+# Third-party notices
+
+## dsh-web-billing pricing engine
+
+`lib/pricing.js` is adapted from the pricing engine in
+[bpc-oss/dsh-web-billing](https://github.com/bpc-oss/dsh-web-billing).
+The adapted portions are used under the MIT License below.
+
+```text
 MIT License
 
-Copyright (c) 2026 yuxino
+Copyright (c) 2026 dsh-web-billing contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,10 +28,4 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-This license covers the project-authored code and original character assets in
-this repository. It does not grant rights to third-party names, logos, or
-trademarks, including DeepSeek and DeepSeek Harness. See CREDITS.md and
-THIRD_PARTY_NOTICES.md.
+```

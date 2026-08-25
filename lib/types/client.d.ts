@@ -1,5 +1,6 @@
 /**
- * Browser half type surface (informational). The bundle registers the
- * `blue-whale-maid` entry into the `shell.overlay` slot of the DSH web GUI.
+ * Browser half type surface. The bundle registers the `blue-whale-maid`
+ * entry into the `shell.overlay` slot of the DSH web GUI.
  */
-export {};
+export function apply(ctx: import('@deepseek-ai/cordis').Context): void;
+export const inject: string[];

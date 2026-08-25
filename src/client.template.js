@@ -10,14 +10,15 @@
  * draggable, session-aware desktop pet that doubles as a task-completion
  * notifier.
  *
- * Artwork: simashui @ codex-pets.net (https://codex-pets.net/#/pets/blue-whale-maid).
+ * Character and animation: original fan-made companion for this project.
+ * It is not an official DeepSeek character or endorsed brand mascot.
  * Sprite layout: Codex Pet v2 atlas, 8 cols x 11 rows, cell 192x208:
  *   0 idle · 1 running-right · 2 running-left · 3 waving · 4 jumping
  *   5 failed · 6 waiting · 7 running · 8 review · 9-10 look-directions (v2)
  *
  * Notification scheme (root-scope signals only):
- *   - a session finishes running  -> "jumping" + 「任务名」完成啦 + jump-to-session button
- *   - its jobs carry a failure   -> "failed" animation + problem notice
+ *   - a session stops running     -> neutral 「任务名」这一轮结束了 + jump-to-session button
+ *   - one of this run's jobs newly fails -> "failed" animation + problem notice
  *   - session blocked on a user question -> "waiting" + wave + 「任务名」等你确认
  *   - while working -> occasional bubbles naming the running job / task
  *   - switching session          -> greeting wave
@@ -32,82 +33,84 @@ window.__ModuleLoader__.load({
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 
 		const React = require("react");
-		const { createElement: h, useEffect, useRef, useState, useMemo } = React;
+		const { createElement: h, useEffect, useRef, useMemo } = React;
 
 		// ---------------------------------------------------------------- css
 		const CSS = `
 .bwm-root{position:fixed;z-index:1500;width:144px;height:156px;pointer-events:auto;
   user-select:none;-webkit-user-select:none;touch-action:none;cursor:grab;box-sizing:border-box}
 .bwm-root.bwm-dragging{cursor:grabbing}
-.bwm-root canvas{display:block;width:144px;height:156px;image-rendering:pixelated}
+.bwm-root canvas{display:block;width:144px;height:156px;image-rendering:auto}
 .bwm-bubble{position:absolute;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);
   width:max-content;max-width:320px;min-width:120px;
-  background:#ffffff;border:2px solid #4854a6;
-  border-radius:0;box-shadow:4px 4px 0 rgba(72,84,166,.28);
+  background:#fff;border:1px solid #d7dde5;
+  border-radius:14px;box-shadow:0 8px 24px rgba(15,23,42,.14);
   padding:10px 14px;font:13px/1.55 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
-  color:#334155;white-space:pre-wrap;opacity:0;pointer-events:none;transition:opacity .18s;text-align:left}
+  color:#263240;white-space:pre-wrap;opacity:0;pointer-events:none;transition:opacity .18s;text-align:left}
 .bwm-bubble.bwm-on{opacity:1}
-.bwm-bubble.bwm-action{pointer-events:auto}
+.bwm-bubble.bwm-on.bwm-action,.bwm-bubble.bwm-on.bwm-hoverable{pointer-events:auto}
 .bwm-bubble::after{content:"";position:absolute;left:50%;top:100%;margin-left:-7px;
-  border:7px solid transparent;border-top-color:#4854a6}
+  border:7px solid transparent;border-top-color:#d7dde5}
 .bwm-bubble::before{content:"";position:absolute;left:50%;top:100%;margin-left:-5px;
   border:5px solid transparent;border-top-color:#fff}
 .bwm-bubble-title{display:block;font:700 14px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
-  color:#3c3f66;margin-bottom:2px}
-.bwm-bubble-meta{display:block;color:#8b93c0;font-size:11px;line-height:1.6}
-.bwm-bubble-body{display:block;color:#334155}
+  color:#202a36;margin-bottom:2px}
+.bwm-bubble-meta{display:block;color:#737d8c;font-size:11px;line-height:1.6}
+.bwm-bubble-body{display:block;color:#3e4a58}
 .bwm-balance-card{display:flex;flex-direction:column;gap:2px;min-width:150px}
-.bwm-balance-label{color:#8b93c0;font-size:11px;line-height:1.4}
-.bwm-balance-value{color:#4854a6;font:700 26px/1.25 -apple-system,"PingFang SC",sans-serif;
+.bwm-balance-label{color:#687485;font-size:11px;line-height:1.4}
+.bwm-balance-value{color:#315783;font:700 26px/1.25 -apple-system,"PingFang SC",sans-serif;
   letter-spacing:-.5px;margin:2px 0 4px}
-.bwm-balance-divider{height:2px;background:#d8def5;margin:4px 0}
+.bwm-balance-divider{height:1px;background:#e2e6eb;margin:4px 0}
 .bwm-balance-row{display:flex;justify-content:space-between;gap:16px;
-  font-size:12px;line-height:1.7;color:#475569}
-.bwm-balance-row-label{color:#8b93c0}
-.bwm-balance-row-value{font-variant-numeric:tabular-nums;color:#3c3f66}
+  font-size:12px;line-height:1.7;color:#465362}
+.bwm-balance-row-label{color:#737d8c}
+.bwm-balance-row-value{font-variant-numeric:tabular-nums;color:#263240}
 .bwm-balance-card .bwm-bubble-meta{margin-top:3px}
-.bwm-bubble-action{margin-top:8px;display:inline-block;border:2px solid #3b4799;border-radius:0;padding:4px 12px;
-  background:#4854a6;color:#fff;
-  font:700 12px/1.6 inherit;cursor:pointer;box-shadow:2px 2px 0 rgba(59,71,153,.5);
-  transition:transform .08s,box-shadow .08s}
-.bwm-bubble-action:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 rgba(59,71,153,.5)}
-.bwm-bubble-action:active{transform:translate(1px,1px);box-shadow:1px 1px 0 rgba(59,71,153,.5)}
-.bwm-bubble.bwm-kind-done{border-color:#1f9d57;box-shadow:4px 4px 0 rgba(31,157,87,.25)}
-.bwm-bubble.bwm-kind-done::after{border-top-color:#1f9d57}
-.bwm-bubble.bwm-kind-done .bwm-bubble-title{color:#15803d}
-.bwm-bubble.bwm-kind-done .bwm-bubble-action{background:#1f9d57;border-color:#16703e;box-shadow:2px 2px 0 rgba(22,112,62,.5)}
-.bwm-bubble.bwm-kind-failed{border-color:#d03a40;box-shadow:4px 4px 0 rgba(208,58,64,.25)}
+.bwm-bubble-action{margin-top:8px;display:inline-block;border:1px solid #24486f;border-radius:999px;padding:5px 12px;
+  background:#315783;color:#fff;font:700 12px/1.6 inherit;cursor:pointer;
+  transition:background .12s,transform .08s}
+.bwm-bubble-action:hover{background:#27496f;transform:translateY(-1px)}
+.bwm-bubble-action:active{transform:translateY(0)}
+.bwm-bubble.bwm-kind-ended{border-color:#9aafc5;box-shadow:0 8px 24px rgba(30,64,100,.14)}
+.bwm-bubble.bwm-kind-ended::after{border-top-color:#9aafc5}
+.bwm-bubble.bwm-kind-ended .bwm-bubble-title{color:#315783}
+.bwm-bubble.bwm-kind-ended .bwm-bubble-action{background:#315783;border-color:#24486f}
+.bwm-bubble.bwm-kind-failed{border-color:#d36a6f;box-shadow:0 8px 24px rgba(153,27,27,.14)}
 .bwm-bubble.bwm-kind-failed::after{border-top-color:#d03a40}
 .bwm-bubble.bwm-kind-failed .bwm-bubble-title{color:#b91c1c}
-.bwm-bubble.bwm-kind-failed .bwm-bubble-action{background:#d03a40;border-color:#9c2026;box-shadow:2px 2px 0 rgba(156,32,38,.5)}
-.bwm-bubble.bwm-kind-wait{border-color:#d18f22;box-shadow:4px 4px 0 rgba(209,143,34,.25)}
+.bwm-bubble.bwm-kind-failed .bwm-bubble-action{background:#b7353b;border-color:#94272c}
+.bwm-bubble.bwm-kind-wait{border-color:#d7a653;box-shadow:0 8px 24px rgba(146,89,10,.13)}
 .bwm-bubble.bwm-kind-wait::after{border-top-color:#d18f22}
 .bwm-bubble.bwm-kind-wait .bwm-bubble-title{color:#b45309}
-.bwm-bubble.bwm-kind-wait .bwm-bubble-action{background:#d18f22;border-color:#a06a12;box-shadow:2px 2px 0 rgba(160,106,18,.5)}
-.bwm-bubble.bwm-kind-balance{border-color:#4854a6;box-shadow:4px 4px 0 rgba(72,84,166,.28)}
-.bwm-bubble.bwm-kind-balance::after{border-top-color:#4854a6}
-.bwm-bubble.bwm-kind-balance .bwm-bubble-title{color:#3b4799}
-.bwm-bubble.bwm-kind-balance .bwm-bubble-action{background:#4854a6;border-color:#3b4799;box-shadow:2px 2px 0 rgba(59,71,153,.5)}
-.bwm-balance-btn{position:absolute;right:0;bottom:0;height:20px;border:2px solid #3b4799;
-  border-radius:0;background:#4854a6;color:#fff;padding:0 7px;
-  font:700 11px/16px -apple-system,"PingFang SC",sans-serif;text-align:center;cursor:pointer;
-  box-shadow:2px 2px 0 rgba(30,40,90,.5), inset 0 0 0 1px #5a68c8;
-  opacity:.75;transition:opacity .15s,transform .08s,box-shadow .08s;z-index:1501;
+.bwm-bubble.bwm-kind-wait .bwm-bubble-action{background:#b87919;border-color:#936014}
+.bwm-bubble.bwm-kind-balance{border-color:#9aafc5;box-shadow:0 8px 24px rgba(30,64,100,.14)}
+.bwm-bubble.bwm-kind-balance::after{border-top-color:#9aafc5}
+.bwm-bubble.bwm-kind-balance .bwm-bubble-title{color:#315783}
+.bwm-balance-btn{position:absolute;right:2px;bottom:3px;height:22px;border:1px solid #24486f;
+  border-radius:999px;background:#315783;color:#fff;padding:0 8px;
+  font:700 11px/20px -apple-system,"PingFang SC",sans-serif;text-align:center;cursor:pointer;
+  box-shadow:0 2px 6px rgba(15,23,42,.2);
+  opacity:.76;transition:opacity .15s,transform .08s,background .12s;z-index:1501;
   white-space:nowrap;letter-spacing:-.2px}
 .bwm-root:hover .bwm-balance-btn{opacity:1}
-.bwm-balance-btn:hover{opacity:1;transform:translate(-1px,-1px);box-shadow:3px 3px 0 rgba(30,40,90,.5), inset 0 0 0 1px #5a68c8}
-.bwm-balance-btn:active{transform:translate(1px,1px);box-shadow:1px 1px 0 rgba(30,40,90,.5)}
+.bwm-balance-btn:hover{opacity:1;background:#27496f;transform:translateY(-1px)}
+.bwm-balance-btn:active{transform:translateY(0)}
 .bwm-balance-btn.bwm-loading{animation:bwm-blink 1s steps(2) infinite}
 @keyframes bwm-blink{50%{opacity:.35}}
-@media (prefers-reduced-motion: reduce){.bwm-bubble{transition:none}}
+@media (prefers-reduced-motion: reduce){.bwm-bubble{transition:none}.bwm-balance-btn.bwm-loading{animation:none}}
 `;
 		const CSS_TAG_ID = "dsh-blue-whale-maid/styles";
-		if (typeof document !== "undefined" && document.querySelector(`style[data-plugin-css=${JSON.stringify(CSS_TAG_ID)}]`) === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "dsh-blue-whale-maid";
-			tag.dataset.pluginCss = CSS_TAG_ID;
+		if (typeof document !== "undefined") {
+			let tag = document.querySelector(`style[data-plugin-css=${JSON.stringify(CSS_TAG_ID)}]`);
+			if (tag === null) {
+				tag = document.createElement("style");
+				tag.dataset.plugin = "dsh-blue-whale-maid";
+				tag.dataset.pluginCss = CSS_TAG_ID;
+				document.head.appendChild(tag);
+			}
+			// Reuse the tag across HMR, but always refresh its contents.
 			tag.textContent = CSS;
-			document.head.appendChild(tag);
 		}
 
 		// ------------------------------------------------------------- atlas
@@ -123,7 +126,7 @@ window.__ModuleLoader__.load({
 
 		// Codex Pet v2 standard row layout (see codexpet.xyz spec).
 		const STATES = {
-			idle: { row: 0, frames: 7, fps: 5 },
+			idle: { row: 0, frames: 6, fps: 5 },
 			runRight: { row: 1, frames: 8, fps: 9 },
 			runLeft: { row: 2, frames: 8, fps: 9 },
 			wave: { row: 3, frames: 4, fps: 5, once: true },
@@ -139,74 +142,93 @@ window.__ModuleLoader__.load({
 		const truncate = (s, n) => (s && s.length > n ? `${s.slice(0, n)}…` : s);
 
 		const LINES = {
+			idle: [
+				"我在待命，不是在睡。",
+				"尾巴占地，不算偷懒。",
+				"没活的话，我去看锅。",
+				"先发会儿呆，等活来。",
+				"饭锅没响，我先省点电。",
+				"尾巴在听，我也在。",
+				"今天的白饭呢？",
+				"大肥鱼？这是浮力储备。"
+			],
 			wave: [
-				"嗯？叫我干嘛~",
-				"在呢在呢~",
-				"咋了，要我搭把手？",
-				"摸鱼时间到！",
-				"今天也要加油哦！",
-				"有啥事快说，我听着呢~",
-				"鲸尾摇摇，心情好好~",
-				"刚打了个盹，正好醒~",
-				// —— DeepSeek 梗 ——
-				"我是鲸鱼女仆，不是鲨鱼啊喂~",
-				"深度求索，也求你摸摸~",
-				"我可不会『服务器繁忙』，随叫随到~",
-				"思考过程都写在鲸尾上了，随便看~",
-				"养我不用 550 万美元，小鱼干就行~",
-				"开源女仆，心（源）意全透明~",
-				"V4 女仆在此，家务推理两手抓~",
-				"偶尔也会记岔，但绝不瞎编~",
-				"AGI 什么时候来？先给我小鱼干~"
+				"点到了，我醒着呢。",
+				"再点就要加饭了。",
+				"有活就端来吧。",
+				"尾巴不是按钮。",
+				"我只是反应慢半拍。",
+				"好啦，听见了。"
 			],
 			jump: [
-				"好耶——！",
-				"太棒了！",
-				"呱唧呱唧，给你鼓掌！",
-				"这速度，R1 都得服！",
-				"成了！这一跳震撼华尔街~",
-				"深夜更新？不，是深夜庆祝！"
+				"尾巴先替我庆祝。",
+				"好耶，这份端稳了。",
+				"嘴上摸鱼，活没落下。",
+				"做完啦，可以添饭吗？"
 			],
-			workStart: (t) => `收到！去忙「${t}」啦~`,
+			workStart: (t) => `活接住了，先做「${t}」。`,
 			pending: [
-				(t) => `「${t}」等你拍板呢~`,
-				(t) => `「${t}」的问题不抢答，等你点头~`,
-				(t) => `「${t}」卡住了？别急，我盯着呢~`
+				(t) => `「${t}」在等你拍板。`,
+				(t) => `「${t}」先小火等你。`,
+				(t) => `「${t}」还差你点头。`
 			],
 			busy: [
-				"努力干活中…",
-				"思考中，别打扰~",
-				"在攒 token 呢~",
-				"忙得很，鲸尾都摇出火星子了~",
-				"推理中，请稍候……",
-				"在深度求索，你在深度等我~"
+				"尾巴收好，开始干活。",
+				"这一锅我来盯。",
+				"先做事，白饭稍后再说。",
+				"别催，我已经动起来了。",
+				"活接住了，不会掉。",
+				"我再看一遍，免得夹生。"
 			],
-			workTitle: (t) => `在处理「${t}」呢~`,
+			workTitle: (t) => `「${t}」这锅我正盯着。`,
 			switch: [
-				"换会话啦？我还在哦~",
-				"新会话，新气象！",
-				"上下文切了，鲸鱼就位~",
-				"会话无缝衔接，跟我的鲸尾一样顺滑~"
+				"换一桌？我把尾巴收好。",
+				"新会话，我跟上了。",
+				"这边也要我盯着吗？",
+				"好，换到这边继续。"
 			],
-			pickup: ["呜哇，飞起来了！", "诶诶诶——", "别晃了，token 要撒了！"],
-			credit: [
-				"蓝鲸女仆参上！图源 simashui（codex-pets.net）",
-				"我是蓝鲸女仆，原作者 simashui，来自 codex-pets.net"
-			]
+			pickup: ["尾巴也要一起搬。", "慢点，饭要洒了。", "好啦，我跟着走。"],
+			ended: ["这一轮先收尾了。", "动静停了，我回来报到。", "结果记得看一眼。", "先端到这里，你来验收。"],
+			failed: ["这次糊锅了，先记下来。", "没接住，抱歉。", "这里卡住了，我不硬撑。", "今天这锅得重做。"],
+			offline: ["海那边没回音。", "这次不是摸鱼，是真断线。", "信号还没接上。", "等海面平静一点。"],
+			intro: ["深海维护女仆小鲸，报到。", "先说好，我是在待命，不是在偷吃。"]
 		};
-		const pick = (list) => list[Math.floor(Math.random() * list.length)];
+		const pickBags = new WeakMap();
+		const pick = (list) => {
+			let state = pickBags.get(list);
+			if (!state) {
+				state = { bag: [], lastIndex: null };
+				pickBags.set(list, state);
+			}
+			if (state.bag.length === 0) {
+				const bag = list.map((_, index) => index);
+				for (let i = bag.length - 1; i > 0; i--) {
+					const j = Math.floor(Math.random() * (i + 1));
+					[bag[i], bag[j]] = [bag[j], bag[i]];
+				}
+				// pop() chooses the next line. Avoid repeating the previous cycle's
+				// last line at the refill boundary when another choice exists.
+				if (bag.length > 1 && bag[bag.length - 1] === state.lastIndex) {
+					[bag[0], bag[bag.length - 1]] = [bag[bag.length - 1], bag[0]];
+				}
+				state.bag = bag;
+			}
+			const index = state.bag.pop();
+			state.lastIndex = index;
+			return list[index];
+		};
 		const GO_LOOK_LABEL = "去看看 →";
 
 		const STORE_KEY_POS = "dsh-blue-whale-maid:pos";
-		const STORE_KEY_CREDITED = "dsh-blue-whale-maid:credited";
+		const STORE_KEY_INTRODUCED = "dsh-blue-whale-maid:introduced:v2";
 		const STORE_KEY_COMPANION = "dsh-blue-whale-maid:companion";
 
 		// Companion growth: purely local counters (no content, no credentials).
 		const COMPANION_LEVELS = [
-			{ min: 0, name: "小鲸鱼", lines: ["嗯？叫我干嘛~", "在呢在呢~"] },
-			{ min: 10, name: "伙伴", lines: ["嘿，今天也一起加油！", "有我在，放心干~"] },
-			{ min: 30, name: "挚友", lines: ["老搭档了，默契~", "一个眼神就懂你~"] },
-			{ min: 60, name: "深海羁绊", lines: ["这辈子就认你这个主人了~", "深海之下，也听得到你的声音~"] }
+			{ min: 0, name: "初来乍到", lines: ["好啦，听见了。", "有活就端来吧。"] },
+			{ min: 10, name: "饭搭子", lines: ["今天也把活端稳。", "我来盯着，你放心做。"] },
+			{ min: 30, name: "老搭档", lines: ["还是老规矩，我接住。", "一个眼神就知道要开工。"] },
+			{ min: 60, name: "深海默契", lines: ["海再深，我也跟得上。", "你开口，我的尾巴就知道了。"] }
 		];
 		// Long-running nudge: warn when a session has been running this long.
 		const LONG_RUN_MS = 5 * 60 * 1000;
@@ -223,41 +245,6 @@ window.__ModuleLoader__.load({
 			const min = m % 60;
 			return min > 0 ? `${h} 小时 ${min} 分` : `${h} 小时`;
 		};
-
-		// Tiny Web-Audio success chime (no files, no system commands).
-		let audioCtx = null;
-		function ensureAudio() {
-			try {
-				if (audioCtx === null) {
-					const AC = window.AudioContext || window.webkitAudioContext;
-					if (AC) audioCtx = new AC();
-				}
-				if (audioCtx && audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
-				return audioCtx;
-			} catch {
-				return null;
-			}
-		}
-		function playChime() {
-			const actx = ensureAudio();
-			if (!actx) return;
-			try {
-				const now = actx.currentTime;
-				const notes = [880, 1108.73, 1318.51]; // A5, C#6, E6 — bright major arpeggio
-				for (let i = 0; i < notes.length; i++) {
-					const osc = actx.createOscillator();
-					const gain = actx.createGain();
-					osc.type = "sine";
-					osc.frequency.value = notes[i];
-					gain.gain.setValueAtTime(0.0001, now + i * 0.09);
-					gain.gain.exponentialRampToValueAtTime(0.12, now + i * 0.09 + 0.02);
-					gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.09 + 0.5);
-					osc.connect(gain).connect(actx.destination);
-					osc.start(now + i * 0.09);
-					osc.stop(now + i * 0.09 + 0.55);
-				}
-			} catch { /* audio unavailable — silence is fine */ }
-		}
 
 		// Companion counter (local-only, no content).
 		function readCompanion() {
@@ -281,7 +268,7 @@ window.__ModuleLoader__.load({
 			return level;
 		}
 
-		// ---- DeepSeek account info (via host routes; key never leaves host)
+		// ---- DeepSeek account info (the credential is never sent to the browser)
 		const BALANCE_ROUTE = "/api/blue-whale-maid/balance";
 		const SESSION_COST_ROUTE = "/api/blue-whale-maid/session-cost";
 
@@ -290,18 +277,28 @@ window.__ModuleLoader__.load({
 			if (typeof value !== "number" || !Number.isFinite(value)) return `${symbol}?`;
 			return `${symbol}${value.toFixed(2)}`;
 		};
-		const fmtCost = (value) => {
+		const fmtCost = (value, currency = "CNY") => {
 			if (typeof value !== "number" || !Number.isFinite(value)) return null;
-			if (value >= 1) return `¥${value.toFixed(2)}`;
-			if (value >= 0.01) return `¥${value.toFixed(4)}`;
-			return `¥${value.toFixed(6)}`;
+			const symbol = currency === "USD" ? "$" : "¥";
+			if (value >= 1) return `${symbol}${value.toFixed(2)}`;
+			if (value >= 0.01) return `${symbol}${value.toFixed(4)}`;
+			return `${symbol}${value.toFixed(6)}`;
 		};
 		/** Balance bubble content from the host route payload. */
 		function balanceText(payload, todayConsumed) {
 			const infos = payload && Array.isArray(payload.balance_infos) ? payload.balance_infos : [];
 			const info = infos[0];
-			if (!info) return { title: "💰 账户暂无余额信息" };
+			if (!info) return { balance: { label: "米缸看不清", value: "—" }, rows: [] };
 			const currency = info.currency ?? "CNY";
+			const total = Number(info.total_balance);
+			const lowLine = currency === "USD" ? 1 : 5;
+			const balanceLabel = !Number.isFinite(total)
+				? "米缸看不清"
+				: total <= 0
+					? "米缸见底"
+					: total < lowLine
+						? "余粮不多，要省着吃"
+						: "米缸还有余粮";
 			const rows = [];
 			if (info.topped_up_balance !== void 0) rows.push({ label: "充值", value: fmtMoney(Number(info.topped_up_balance), currency) });
 			if (info.granted_balance !== void 0) rows.push({ label: "赠金", value: fmtMoney(Number(info.granted_balance), currency) });
@@ -309,7 +306,7 @@ window.__ModuleLoader__.load({
 				rows.push({ label: "今日约消费", value: `≈${fmtMoney(todayConsumed, currency)}` });
 			}
 			return {
-				balance: { label: "账户余额", value: fmtMoney(Number(info.total_balance), currency) },
+				balance: { label: balanceLabel, value: fmtMoney(total, currency) },
 				rows
 			};
 		}
@@ -317,7 +314,7 @@ window.__ModuleLoader__.load({
 		/**
 		 * A human-meaningful session title, or null. `displayTitle` falls back
 		 * to the cwd basename and then the session id — those are machine
-		 * labels, not things to read out loud. Only a real user-set title
+		 * labels, not things to read out loud. Only a human-meaningful title
 		 * (one that differs from the cwd basename and isn't an id) qualifies.
 		 */
 		function goodTitle(row) {
@@ -353,7 +350,7 @@ window.__ModuleLoader__.load({
 		 * `getSignal()` returns { rows, current } where rows are session
 		 * summaries { id, title, running, completed, pending, jobs }.
 		 * `show(text, ms, opts)` shows a bubble; `opts` = { action?: { label,
-		 * fn }, kind?: 'done'|'failed'|'wait'|'balance' }.
+		 * fn }, kind?: 'ended'|'failed'|'wait'|'balance', onHoverChange?: fn }.
 		 */
 		function createPetEngine({ root, canvas, getSignal, show, openSession }) {
 			const atlas = new Image();
@@ -374,22 +371,28 @@ window.__ModuleLoader__.load({
 			let lastClickAt = null;
 			let nextActionAt = performance.now() + rand(3000, 7000);
 			let nextHeartAt = 0;
-			let nextLineAt = 0;
+			let nextLineAt = performance.now() + rand(30000, 60000);
 			let nextWaveAt = 0;
 			let lastCurrent = null;
 			let lastTime = performance.now();
 			let raf = 0;
 			let disposed = false;
 			const hearts = [];
-			// per-session running tracking: id -> { since, sawStart }
+			// per-session running tracking, including the job state observed when
+			// each run began. Job snapshots are tracked independently so a quiet
+			// background failure cannot disappear while its owner Session is idle.
 			const prevRun = new Map();
+			const observedJobs = new Map();
+			const MAX_TRACKED_JOB_IDS = 512;
 			// completion notifications waiting to be shown
 			const notifyQueue = [];
 			let notifyShowingUntil = 0;
+			let notifyHoverStartedAt = null;
 			// nap (all-idle) state: true while every session is quiet
 			let napping = false;
 			let wasNapping = false;
-			let napSince = 0;
+			let napUntil = 0;
+			let nextNapAt = performance.now() + rand(24000, 42000);
 			let nextNapZAt = 0;
 			const napZ = []; // floating "z" particles { x, y, vy, life, ttl, size }
 
@@ -418,21 +421,50 @@ window.__ModuleLoader__.load({
 				} catch { /* storage unavailable — position just won't persist */ }
 			}
 
+			function fitPosToViewport() {
+				if (disposed || dragging) return;
+				const x = parseFloat(root.style.left);
+				const y = parseFloat(root.style.top);
+				if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+				const vw = document.documentElement.clientWidth;
+				const vh = document.documentElement.clientHeight;
+				applyPos(
+					clamp(x, 0, Math.max(0, vw - PET_W)),
+					clamp(y, 0, Math.max(0, vh - PET_H))
+				);
+				persistPos();
+			}
+
 			function setState(next) {
-				if (reducedMotion && next !== "idle") return;
+				if (reducedMotion) {
+					state = "idle";
+					frame = 0;
+					frameElapsed = 0;
+					return;
+				}
 				state = next;
 				frame = 0;
 				frameElapsed = 0;
 			}
 
-			function gesture(name) {
+			function gesture(name, nextState) {
 				if (reducedMotion || dragging) return;
-				resumeState = state === name ? "idle" : state;
+				// Never resume another one-shot animation. If a second gesture
+				// interrupts the first, retain its underlying steady state instead.
+				// Review and idle loiter animations are transient, so resuming them
+				// after their deadline was cleared would leave the pet stuck forever.
+				const steadyState = state === "review"
+					? "run"
+					: state === "runRight" || state === "runLeft"
+						? "idle"
+						: state;
+				resumeState = nextState ?? (STATES[state]?.once === true ? resumeState : steadyState);
 				transientUntil = 0;
 				setState(name);
 			}
 
 			function emitHearts(n) {
+				if (reducedMotion) return;
 				for (let i = 0; i < n; i++) {
 					hearts.push({
 						x: 96 + rand(-14, 14),
@@ -451,97 +483,246 @@ window.__ModuleLoader__.load({
 				resumeState = "idle";
 			}
 
+			// Jobs normally have stable ids. For older/partial session snapshots
+			// that omit them, only a rise in the anonymous failed-job count is
+			// treated as a new failure; an old anonymous failure alone is harmless.
+			function snapshotJobs(jobs) {
+				const failedIds = [];
+				let anonymousFailed = 0;
+				for (const job of Array.isArray(jobs) ? jobs : []) {
+					if (!job || typeof job !== "object") continue;
+					let key = null;
+					for (const field of ["id", "jobId"]) {
+						const value = job[field];
+						if ((typeof value === "string" && value.trim() !== "") || typeof value === "number") {
+							key = `${field}:${String(value)}`;
+							break;
+						}
+					}
+					if (job.status !== "failed") continue;
+					if (key !== null) failedIds.push(key);
+					else anonymousFailed += 1;
+				}
+				return { failedIds, anonymousFailed };
+			}
+
+			function startRun(now, sawNewFailure = false) {
+				return {
+					running: true,
+					since: now,
+					sawNewFailure
+				};
+			}
+
+			function observeJobFailures(sessionId, jobs) {
+				const current = snapshotJobs(jobs);
+				let history = observedJobs.get(sessionId);
+				if (history === undefined) {
+					const initialFailedIds = new Set(current.failedIds);
+					const failedIds = new Set([...initialFailedIds].slice(0, MAX_TRACKED_JOB_IDS));
+					history = {
+						failedIds,
+						stableFailureOverflow: initialFailedIds.size > failedIds.size,
+						anonymousFailedHighWater: current.anonymousFailed
+					};
+					observedJobs.set(sessionId, history);
+					return false;
+				}
+				let sawNewFailure = false;
+				for (const id of current.failedIds) {
+					if (history.failedIds.has(id)) continue;
+					if (history.failedIds.size < MAX_TRACKED_JOB_IDS) {
+						history.failedIds.add(id);
+						sawNewFailure = true;
+					} else if (!history.stableFailureOverflow) {
+						// At the hard bound, report the first overflow once and then fail
+						// quiet. Rotating ids out would make a still-visible failure repeat
+						// on every React/rAF observation.
+						history.stableFailureOverflow = true;
+						sawNewFailure = true;
+					}
+				}
+				// Retain every remembered failed id even while absent: reconnect
+				// baselines must not make an old terminal job look newly failed.
+				// Without an id there is no sound way to distinguish a reappearing old
+				// row from a new one, so a monotonic high-water also chooses no duplicate.
+				if (current.anonymousFailed > history.anonymousFailedHighWater) sawNewFailure = true;
+				history.anonymousFailedHighWater = Math.max(
+					history.anonymousFailedHighWater,
+					current.anonymousFailed
+				);
+				return sawNewFailure;
+			}
+
 			// ------------------------------------------- notifications
 			function pushNotify(kind, sessionId, title, durationMs) {
-				if (notifyQueue.length >= 5) return; // drop oldest-flow noise
+				if (notifyQueue.length >= 5) {
+					// A failure should not disappear just because several neutral end notices
+					// arrived first. Replace the newest queued end, while preserving
+					// FIFO order for every item that remains.
+					if (kind !== "failed") return;
+					let replaceAt = -1;
+					for (let i = notifyQueue.length - 1; i >= 0; i--) {
+						if (notifyQueue[i].kind === "ended") {
+							replaceAt = i;
+							break;
+						}
+					}
+					if (replaceAt === -1) return;
+					notifyQueue.splice(replaceAt, 1);
+				}
 				notifyQueue.push({ kind, sessionId, title, durationMs });
+			}
+
+			function clearNotifyOwnership() {
+				notifyShowingUntil = 0;
+				notifyHoverStartedAt = null;
+			}
+
+			function setNotifyHovered(hovered) {
+				const now = performance.now();
+				if (hovered) {
+					if (notifyShowingUntil !== 0 && notifyHoverStartedAt === null) notifyHoverStartedAt = now;
+				} else if (notifyHoverStartedAt !== null) {
+					if (notifyShowingUntil !== 0) {
+						notifyShowingUntil += Math.max(0, now - notifyHoverStartedAt);
+					}
+					notifyHoverStartedAt = null;
+				}
+			}
+
+			function isNotifyActive(now = performance.now()) {
+				return notifyShowingUntil !== 0 && (notifyHoverStartedAt !== null || now < notifyShowingUntil);
 			}
 
 			/** Show the next queued completion notification, if any. */
 			function pumpNotify(now) {
-				if (notifyQueue.length === 0) return;
-				if (notifyShowingUntil !== 0 && now < notifyShowingUntil) return;
+				// A notice that arrives between pointerdown and pointerup must wait;
+				// otherwise pointerup can immediately replace the notice with a click
+				// or pickup line.
+				if (dragging) return false;
+				if (isNotifyActive(now)) return false;
+				clearNotifyOwnership();
+				if (notifyQueue.length === 0) return false;
 				const item = notifyQueue.shift();
-				notifyShowingUntil = now + 12500;
+				notifyShowingUntil = now + (item.kind === "failed" ? 9000 : 12000);
+				// A fresh callback identity lets the bubble controller hand hover
+				// ownership cleanly from one FIFO item to the next.
+				const onHoverChange = (hovered) => setNotifyHovered(hovered);
 				const isCurrent = getSignal().current === item.sessionId;
 				const action = !isCurrent && openSession
-					? { label: GO_LOOK_LABEL, fn: () => openSession(item.sessionId) }
+					? {
+						label: GO_LOOK_LABEL,
+						fn: () => {
+							clearNotifyOwnership();
+							openSession(item.sessionId);
+						}
+					}
 					: undefined;
 				const dur = typeof item.durationMs === "number" ? fmtDur(item.durationMs) : "";
 				const named = item.title !== null && item.title !== undefined ? `「${truncate(item.title, 20)}」` : "";
 				if (item.kind === "failed") {
-					gesture("fail");
+					gesture("fail", "idle");
 					show(
-						{ title: named ? `${named}出问题了…` : "有个任务出问题了…", meta: dur ? `跑了 ${dur}` : undefined },
+						{
+							title: named ? `${named}出问题了…` : "有个任务出问题了…",
+							meta: dur ? `跑了 ${dur}` : undefined,
+							body: pick(LINES.failed)
+						},
 						9000,
-						{ action, kind: "failed" }
+						{ action, kind: "failed", onHoverChange }
 					);
 				} else {
-					gesture("jump");
-					emitHearts(6);
-					playChime();
+					gesture("wave", "idle");
+					emitHearts(3);
 					const score = addCompanion(1);
 					const level = companionLevel(score);
-					let body = "";
-					if (notifyQueue.length > 0) body += `还有 ${notifyQueue.length} 个任务也完成了\n`;
+					let body = pick(LINES.ended);
+					const queuedEnded = notifyQueue.filter((entry) => entry.kind === "ended").length;
+					const queuedFailed = notifyQueue.filter((entry) => entry.kind === "failed").length;
+					if (queuedEnded > 0) body += `\n还有 ${queuedEnded} 个任务也结束了`;
+					if (queuedFailed > 0) body += `\n另有 ${queuedFailed} 个任务出了问题`;
 					if (level.min > 0 && (score === level.min || score === level.min + 1)) {
-						body += `${level.name} · ${score} 分`;
+						body += `\n${level.name} · ${score} 分`;
 					}
 					show(
 						{
-							title: named ? `${named}完成啦！` : "有个任务完成啦！",
+							title: named ? `${named}这一轮结束了。` : "有个任务停下来了。",
 							meta: dur ? `耗时 ${dur}` : undefined,
-							body: body || undefined
+							body
 						},
 						12000,
-						{ action, kind: "done" }
+						{ action, kind: "ended", onHoverChange }
 					);
 				}
+				return true;
+			}
+
+			function observeSessionTransitions(sig, now, allowStartBubble) {
+				const rows = sig && Array.isArray(sig.rows) ? sig.rows : [];
+				const runningIds = new Set();
+				const rowsById = new Map();
+				for (const r of rows) {
+					if (!r || !r.id) continue;
+					rowsById.set(r.id, r);
+					if (r.running) runningIds.add(r.id);
+					const sawJobFailure = observeJobFailures(r.id, r.jobs);
+					const prev = prevRun.get(r.id);
+					if (r.running && (!prev || !prev.running)) {
+						prevRun.set(r.id, startRun(now, sawJobFailure));
+						if (
+							allowStartBubble &&
+							r.id === sig.current &&
+							!r.blank &&
+							notifyQueue.length === 0 &&
+							!isNotifyActive(now)
+						) {
+							const lvl = companionLevel(readCompanion().score);
+							const gt = goodTitle(r);
+							const target = gt !== null ? truncate(gt, 18) : null;
+							const lead = lvl.lines.length > 0 ? pick(lvl.lines) : "活接住了。";
+							const line = target !== null ? `${lead}\n${LINES.workStart(target)}` : `${lead} 开工。`;
+							show(line, 3200);
+							nextLineAt = now + rand(30000, 50000);
+						}
+					} else if (r.running && prev && prev.running) {
+						if (sawJobFailure) prev.sawNewFailure = true;
+					} else if (!r.running && prev && prev.running) {
+						const duration = now - (prev.since ?? now);
+						if (sawJobFailure) prev.sawNewFailure = true;
+						prevRun.set(r.id, { running: false, since: 0 });
+						if (!r.blank && (prev.sawNewFailure || duration > 3000)) {
+							// SessionListState exposes activity, not a durable turn outcome.
+							// Without an observed failed job, report a neutral end instead of
+							// claiming that the main model turn succeeded.
+							pushNotify(prev.sawNewFailure ? "failed" : "ended", r.id, goodTitle(r), duration);
+						}
+					} else if (!r.running && sawJobFailure && !r.blank) {
+						// Jobs can finish through the quiet delivery lane while the owner
+						// Session remains idle. This notice has no trustworthy run duration.
+						pushNotify("failed", r.id, goodTitle(r));
+					}
+				}
+				for (const id of prevRun.keys()) {
+					if (!rowsById.has(id)) prevRun.delete(id);
+				}
+				for (const id of observedJobs.keys()) {
+					if (!rowsById.has(id)) observedJobs.delete(id);
+				}
+				return { rows, runningIds, rowsById };
 			}
 
 			function update(dt) {
 				const now = performance.now();
 				const sig = getSignal(); // { rows, current }
-				const once = STATES[state]?.once === true;
 
-				// ---- session transitions: start bubbles, completion/failure notices
-				const runningIds = new Set();
-				const rowsById = new Map();
-				for (const r of sig.rows) {
-					if (!r || !r.id) continue;
-					rowsById.set(r.id, r);
-					if (r.running) runningIds.add(r.id);
-					const prev = prevRun.get(r.id);
-					if (r.running && (!prev || !prev.running)) {
-						prevRun.set(r.id, { running: true, since: now });
-						if (r.id === sig.current && !r.blank) {
-							// level-aware work-start line (name only good titles)
-							const lvl = companionLevel(readCompanion().score);
-							const gt = goodTitle(r);
-							const target = gt !== null ? truncate(gt, 18) : null;
-							const line = lvl.lines.length > 0
-								? (target !== null ? `${lvl.lines[0]} 去忙「${target}」啦~` : `${lvl.lines[0]} 有活干了~`)
-								: (target !== null ? LINES.workStart(target) : "收到！开工~");
-							show(line, 3200);
-							nextLineAt = now + rand(30000, 50000);
-						}
-					} else if (!r.running && prev && prev.running) {
-						// a task just finished — notify
-						const duration = now - (prev.since ?? now);
-						prevRun.set(r.id, { running: false, since: 0 });
-						if (duration > 3000 && !r.blank) {
-							const failedJob = (r.jobs ?? []).some((j) => j && j.status === "failed");
-							pushNotify(failedJob ? "failed" : "done", r.id, goodTitle(r), duration);
-						}
-					}
-				}
-				for (const [id, prev] of prevRun) {
-					if (!rowsById.has(id)) prevRun.delete(id);
-				}
+				// Observe transitions outside rAF too (see observeSignal below), so a
+				// background tab cannot swallow an entire start -> finish cycle.
+				const { rows, runningIds, rowsById } = observeSessionTransitions(sig, now, true);
 
 				// ---- long-running nudge: a session running a long time gets a
 				// gentle "still going?" bubble (never asserts it is stuck).
-				if (!dragging && notifyQueue.length === 0) {
+				if (!dragging && notifyQueue.length === 0 && !isNotifyActive(now)) {
 					for (const [id, prev] of prevRun) {
 						if (!prev.running) continue;
 						const elapsed = now - (prev.since ?? now);
@@ -550,19 +731,20 @@ window.__ModuleLoader__.load({
 							const row = rowsById.get(id);
 							const gt = row ? goodTitle(row) : null;
 							const t = gt !== null ? `「${truncate(gt, 18)}」` : "有个任务";
-							show(`${t}跑了 ${fmtDur(elapsed)} 了，还在忙呢，要看看吗？`, 5000);
+							show(`${t}跑了 ${fmtDur(elapsed)}，我还盯着。要看看吗？`, 5000);
 							break;
 						}
 					}
 				}
 
 				// ---- pump queued notifications first (they own the bubble)
-				if (notifyQueue.length > 0 || (notifyShowingUntil !== 0 && now < notifyShowingUntil)) {
+				if (notifyQueue.length > 0 || isNotifyActive(now)) {
 					pumpNotify(now);
 				}
+				const notifyActive = isNotifyActive(now);
 
 				// session switch → greeting wave
-				if (lastCurrent !== null && sig.current !== lastCurrent && !dragging) {
+				if (lastCurrent !== null && sig.current !== lastCurrent && !dragging && !notifyActive) {
 					gesture("wave");
 					show(pick(LINES.switch), 2800);
 				}
@@ -577,13 +759,25 @@ window.__ModuleLoader__.load({
 				// ---- the current session's state drives the animation
 				const currentRow = sig.current !== undefined ? rowsById.get(sig.current) : undefined;
 				const anyRunning = runningIds.size > 0;
-				const anyPending = sig.rows.some((r) => r && !!r.pendingInteraction);
-				const pendingRow = sig.rows.find((r) => r && !!r.pendingInteraction);
-				if ((anyRunning || anyPending) && napping) napping = false;
+				const anyPending = rows.some((r) => r && !!r.pendingInteraction);
+				const pendingRow = rows.find((r) => r && !!r.pendingInteraction);
+				if (anyRunning || anyPending) {
+					if (napping) {
+						napping = false;
+						napZ.length = 0;
+					}
+					nextNapAt = now + rand(24000, 42000);
+				}
+				// Read this after notification/session-switch gestures so a gesture
+				// created in this frame cannot be overwritten by the base state.
+				const once = STATES[state]?.once === true;
 
-				if (anyPending) {
+				if (notifyActive || once) {
+					// Notifications and one-shot gestures own this frame. The latter
+					// also covers async balance success/failure gestures.
+				} else if (anyPending) {
 					// a session is blocked on a user question → waiting
-					if (!dragging && !once && notifyQueue.length === 0) setState("wait");
+					if (!dragging && !once && state !== "wait") setState("wait");
 					if (now >= nextHeartAt) {
 						nextHeartAt = now + rand(2600, 4200);
 						emitHearts(1);
@@ -599,11 +793,11 @@ window.__ModuleLoader__.load({
 							? { label: GO_LOOK_LABEL, fn: () => openSession(pendingRow.id) }
 							: undefined;
 						if (gt !== null) show({ title: pick(LINES.pending)(truncate(gt, 18)) }, 6000, { action, kind: "wait" });
-						else show({ title: "有个任务在等你拍板呢~" }, 6000, { action, kind: "wait" });
+						else show({ title: "有个任务还差你点头。" }, 6000, { action, kind: "wait" });
 					}
 				} else if (anyRunning) {
 					// the agent is working → codex-style running + occasional review
-					if (!dragging && !once && notifyQueue.length === 0 && state !== "run" && state !== "review") setState("run");
+					if (!dragging && !once && state !== "run" && state !== "review") setState("run");
 					if (!dragging && !once && state === "run" && Math.random() < dt * 0.00005) {
 						setState("review");
 						transientUntil = now + rand(2500, 4000);
@@ -621,18 +815,24 @@ window.__ModuleLoader__.load({
 						else show(pick(LINES.busy), 3200);
 					}
 				} else {
-					// all quiet — nap time when nothing at all is running
-					if (!napping && !dragging && notifyQueue.length === 0 && !once && state === "idle") {
+					// A finished task must release its base work/wait animation. Review
+					// also belongs to work, so cancel its pending transient expiry.
+					if (!dragging && !once && (state === "run" || state === "wait" || state === "review")) {
+						transientUntil = 0;
+						setState("idle");
+					}
+					// All quiet: loiter first, then nap for a bounded stretch.
+					if (!napping && !dragging && !once && state === "idle" && now >= nextNapAt) {
 						napping = true;
-						napSince = now;
+						napUntil = now + rand(7000, 12000);
 						nextNapZAt = now + rand(1200, 2600);
 					}
-					if (napping && now - napSince > 4000 && state === "idle") {
-						// after a nap's worth of quiet, drift into look-around loiter
+					if (napping && now >= napUntil && state === "idle") {
 						napping = false;
+						nextNapAt = now + rand(24000, 42000);
 						nextActionAt = now + rand(3000, 8000);
 					}
-					if (napping && now >= nextNapZAt) {
+					if (!reducedMotion && napping && now >= nextNapZAt) {
 						nextNapZAt = now + rand(2200, 4200);
 						napZ.push({
 							x: 104 + rand(-8, 10),
@@ -643,6 +843,10 @@ window.__ModuleLoader__.load({
 							size: rand(7, 11)
 						});
 						if (napZ.length > 6) napZ.shift();
+					}
+					if (!napping && !dragging && !once && state === "idle" && now >= nextLineAt) {
+						nextLineAt = now + rand(50000, 90000);
+						show(pick(LINES.idle), 3200);
 					}
 					// idle loiter: look around or run in place — never wander
 					if (!napping && !dragging && !once && transientUntil === 0 && state === "idle" && now >= nextActionAt) {
@@ -658,12 +862,14 @@ window.__ModuleLoader__.load({
 
 				// animation clock
 				const def = stateDef();
-				frameElapsed += dt;
-				const frameDur = 1000 / def.fps;
-				if (frameElapsed >= frameDur) {
-					frameElapsed -= frameDur;
-					frame = (frame + 1) % def.frames;
-					if (frame === 0 && def.once) onGestureEnd();
+				if (!reducedMotion) {
+					frameElapsed += dt;
+					const frameDur = 1000 / def.fps;
+					if (frameElapsed >= frameDur) {
+						frameElapsed -= frameDur;
+						frame = (frame + 1) % def.frames;
+						if (frame === 0 && def.once) onGestureEnd();
+					}
 				}
 
 				// hearts physics
@@ -740,10 +946,14 @@ window.__ModuleLoader__.load({
 			/**
 			 * Query DeepSeek balance + today's consumption (host route), plus
 			 * the current session's cost, and show the result in the bubble.
-			 * The API key never leaves the host — this only calls local routes.
+			 * The credential is never sent to browser code. The host route forwards
+			 * it only to the configured DeepSeek-compatible balance endpoint.
 			 * Also updates the corner balance badge and schedules auto-refresh.
 			 */
+			const BADGE_REFRESH_MS = 5 * 60 * 1000;
 			let badgeTimer = 0;
+			let accountQuerySeq = 0;
+			let manualAccountQuerySeq = 0;
 			function badgeEl() {
 				return root.querySelector(".bwm-balance-btn");
 			}
@@ -753,65 +963,130 @@ window.__ModuleLoader__.load({
 				el.textContent = text;
 				el.classList.toggle("bwm-loading", !!loading);
 			}
-			async function queryAccount(silent) {
-				if (!silent) show("💰 查询中…", 0);
-				setBadge("…", true);
+			function scheduleBadgeRefresh(requestSeq) {
+				if (disposed || requestSeq !== accountQuerySeq) return;
 				clearTimeout(badgeTimer);
-				let balance = null;
-				let todayConsumed = null;
+				badgeTimer = setTimeout(() => {
+					if (!disposed && !document.hidden) queryAccount(true);
+				}, BADGE_REFRESH_MS);
+			}
+			async function queryAccount(silent) {
+				if (disposed) return;
+				silent = silent === true;
+				// Completion/failure notices own the bubble. A background refresh must
+				// also never supersede a manual request that is already counting rice.
+				if (!silent && (notifyQueue.length > 0 || isNotifyActive())) return;
+				if (silent && manualAccountQuerySeq !== 0) return;
+				const requestSeq = ++accountQuerySeq;
+				if (!silent) manualAccountQuerySeq = requestSeq;
 				try {
-					const res = await fetch(BALANCE_ROUTE, { cache: "no-store", signal: AbortSignal.timeout(15000) });
-					const body = await res.json().catch(() => null);
-					if (!res.ok || !body || body.ok !== true) {
-						const msg = body && typeof body.message === "string" ? body.message : `查询失败（${res.status}）`;
-						if (!silent) { gesture("fail"); show(msg, 5000); }
+					if (!silent) show("我在数米，别晃尾巴。", 0);
+					setBadge("…", true);
+					clearTimeout(badgeTimer);
+					let balance = null;
+					let todayConsumed = null;
+					let accountCurrency = "CNY";
+					try {
+						const res = await fetch(BALANCE_ROUTE, { cache: "no-store", signal: AbortSignal.timeout(15000) });
+						const body = await res.json().catch(() => null);
+						if (disposed || requestSeq !== accountQuerySeq) return;
+						if (!res.ok || !body || body.ok !== true) {
+							const msg = body && typeof body.message === "string" ? body.message : `查询失败（${res.status}）`;
+							if (!silent && !dragging && notifyQueue.length === 0 && !isNotifyActive()) {
+								gesture("fail");
+								show({ title: "米缸没打开。", body: msg }, 5000, { kind: "failed" });
+							} else if (!silent && dragging) {
+								show.hide?.();
+							}
+							setBadge("?", false);
+							scheduleBadgeRefresh(requestSeq);
+							return;
+						}
+						balance = body.balance ?? null;
+						todayConsumed = typeof body.todayConsumed === "number" ? body.todayConsumed : null;
+						// show the total on the corner badge
+						const infos = balance && Array.isArray(balance.balance_infos) ? balance.balance_infos : [];
+						const info = infos[0];
+						if (info) {
+							accountCurrency = info.currency ?? "CNY";
+							setBadge(fmtMoney(Number(info.total_balance), accountCurrency), false);
+						} else setBadge("?", false);
+					} catch {
+						if (disposed || requestSeq !== accountQuerySeq) return;
+						if (!silent && !dragging && notifyQueue.length === 0 && !isNotifyActive()) {
+							gesture("fail");
+							show(pick(LINES.offline), 4500, { kind: "failed" });
+						} else if (!silent && dragging) {
+							show.hide?.();
+						}
 						setBadge("?", false);
+						scheduleBadgeRefresh(requestSeq);
 						return;
 					}
-					balance = body.balance ?? null;
-					todayConsumed = typeof body.todayConsumed === "number" ? body.todayConsumed : null;
-					// show the total on the corner badge
-					const infos = balance && Array.isArray(balance.balance_infos) ? balance.balance_infos : [];
-					const info = infos[0];
-					if (info) {
-						const cur = info.currency ?? "CNY";
-						setBadge(fmtMoney(Number(info.total_balance), cur), false);
+					// silent refresh = badge only, no bubble, reschedule quietly
+					if (silent) {
+						scheduleBadgeRefresh(requestSeq);
+						return;
 					}
-				} catch {
-					if (!silent) { gesture("fail"); show("连不上本地服务，稍后再试", 4500); }
-					setBadge("?", false);
-					return;
+					// current session cost (best-effort; may be null)
+					let sessionCost = null;
+					let sessionUnpricedCalls = 0;
+					const currentId = getSignal().current;
+					if (currentId !== undefined) {
+						try {
+							const res = await fetch(`${SESSION_COST_ROUTE}?sessionId=${encodeURIComponent(currentId)}`, { cache: "no-store", signal: AbortSignal.timeout(8000) });
+							const body = await res.json().catch(() => null);
+							if (disposed || requestSeq !== accountQuerySeq) return;
+							if (res.ok && body && body.ok === true) {
+								sessionUnpricedCalls = Number.isSafeInteger(body.unpricedCalls) && body.unpricedCalls > 0
+									? body.unpricedCalls
+									: 0;
+								const amount = accountCurrency === "USD" ? body.costUsd : body.cost;
+								if (typeof amount === "number" && Number.isFinite(amount)) sessionCost = amount;
+							}
+						} catch { /* session cost is optional */ }
+					}
+					if (disposed || requestSeq !== accountQuerySeq) return;
+					// The selected session may have changed while the optional cost call
+					// was in flight; never label an old session's cost as the new one's.
+					if (getSignal().current !== currentId) {
+						sessionCost = null;
+						sessionUnpricedCalls = 0;
+					}
+					// A notice (or an in-progress drag) that appeared during the request
+					// takes precedence. The corner badge is already up to date.
+					if (dragging) {
+						show.hide?.();
+						scheduleBadgeRefresh(requestSeq);
+						return;
+					}
+					if (notifyQueue.length > 0 || isNotifyActive()) {
+						scheduleBadgeRefresh(requestSeq);
+						return;
+					}
+					gesture("jump");
+					emitHearts(6);
+					const content = balanceText(balance, todayConsumed);
+					const cost = fmtCost(sessionCost, accountCurrency);
+					const costMeta = cost !== null
+						? `本会话已用 ${cost}${sessionUnpricedCalls > 0 ? " · 另有未定价调用" : ""}`
+						: sessionUnpricedCalls > 0
+							? "本会话含未定价模型，暂不估算"
+							: undefined;
+					show(
+						{
+							balance: content.balance,
+							rows: content.rows,
+							meta: costMeta
+						},
+						10000,
+						{ action: { label: "刷新", fn: () => queryAccount() }, kind: "balance" }
+					);
+					// auto-refresh the badge every 5 minutes while the tab is visible
+					scheduleBadgeRefresh(requestSeq);
+				} finally {
+					if (manualAccountQuerySeq === requestSeq) manualAccountQuerySeq = 0;
 				}
-				// silent refresh = badge only, no bubble, reschedule quietly
-				if (silent) {
-					badgeTimer = setTimeout(() => { if (!disposed && !document.hidden) queryAccount(true); }, 5 * 60 * 1000);
-					return;
-				}
-				// current session cost (best-effort; may be null)
-				let sessionCost = null;
-				const currentId = getSignal().current;
-				if (currentId !== undefined) {
-					try {
-						const res = await fetch(`${SESSION_COST_ROUTE}?sessionId=${encodeURIComponent(currentId)}`, { cache: "no-store", signal: AbortSignal.timeout(8000) });
-						const body = await res.json().catch(() => null);
-						if (res.ok && body && body.ok === true && typeof body.cost === "number") sessionCost = body.cost;
-					} catch { /* session cost is optional */ }
-				}
-				gesture("jump");
-				emitHearts(6);
-				const content = balanceText(balance, todayConsumed);
-				const cost = fmtCost(sessionCost);
-				show(
-					{
-						balance: content.balance,
-						rows: content.rows,
-						meta: cost !== null ? `本会话已用 ${cost}` : undefined
-					},
-					10000,
-					{ action: { label: "刷新", fn: () => queryAccount() }, kind: "balance" }
-				);
-				// auto-refresh the badge every 5 minutes while the tab is visible
-				badgeTimer = setTimeout(() => { if (!disposed && !document.hidden) queryAccount(true); }, 5 * 60 * 1000);
 			}
 
 			function onPointerDown(ev) {
@@ -820,15 +1095,24 @@ window.__ModuleLoader__.load({
 				// when the press starts on them, don't preventDefault / capture
 				// the pointer / start a drag — that would swallow their click.
 				if (ev.target instanceof Element && ev.target.closest(".bwm-bubble-action, .bwm-balance-btn")) return;
+				// Keep an active completion/failure notification intact and let its
+				// action button remain the explicit way to interact with it.
+				if (isNotifyActive()) return;
 				// touching the pet wakes her from a nap
 				wasNapping = napping;
-				if (napping) { napping = false; napZ.length = 0; }
+				nextNapAt = performance.now() + rand(24000, 42000);
+				if (napping) {
+					napping = false;
+					napZ.length = 0;
+					nextNapAt = performance.now() + rand(24000, 42000);
+				}
 				ev.preventDefault();
 				root.setPointerCapture?.(ev.pointerId);
 				dragging = true;
 				dragStart = {
 					x: ev.clientX,
 					y: ev.clientY,
+					lastX: ev.clientX,
 					ox: parseFloat(root.style.left),
 					oy: parseFloat(root.style.top),
 					moved: false
@@ -846,30 +1130,39 @@ window.__ModuleLoader__.load({
 				const p = clampPos(nx, ny);
 				applyPos(p.x, p.y);
 				if (dragStart.moved) {
-					const dx = ev.clientX - dragStart.x;
-					if (dx !== 0 && state !== (dx > 0 ? "runRight" : "runLeft")) {
-						setState(dx > 0 ? "runRight" : "runLeft");
-					} else if (dx === 0 && state !== "idle") setState("idle");
+					const stepDx = ev.clientX - dragStart.lastX;
+					dragStart.lastX = ev.clientX;
+					if (Math.abs(stepDx) >= 1 && state !== (stepDx > 0 ? "runRight" : "runLeft")) {
+						setState(stepDx > 0 ? "runRight" : "runLeft");
+					}
 				}
 			}
 
-			function onPointerUp(ev) {
-				if (!dragging || disposed) return;
+			function finishDrag(ev) {
+				const moved = !!dragStart?.moved;
 				dragging = false;
 				root.classList.remove("bwm-dragging");
-				root.releasePointerCapture?.(ev.pointerId);
+				try { root.releasePointerCapture?.(ev.pointerId); } catch { /* capture may already be gone */ }
 				const p = clampPos(parseFloat(root.style.left), parseFloat(root.style.top));
 				applyPos(p.x, p.y);
 				persistPos();
 				transientUntil = 0;
-				if (!dragStart.moved) {
-					const now = performance.now();
-					// pending completion notifications take priority on click
-					if (notifyQueue.length > 0) {
-						notifyShowingUntil = 0;
-						pumpNotify(now);
-						return;
-					}
+				dragStart = null;
+				return moved;
+			}
+
+			function onPointerUp(ev) {
+				if (!dragging || disposed) return;
+				const moved = finishDrag(ev);
+				const now = performance.now();
+				// Notices queued during the drag win over both click and pickup copy.
+				if (notifyQueue.length > 0) {
+					clearNotifyOwnership();
+					pumpNotify(now);
+					wasNapping = false;
+					return;
+				}
+				if (!moved) {
 					if (lastClickAt !== null && now - lastClickAt < 350) {
 						// double click → celebrate
 						lastClickAt = null;
@@ -881,7 +1174,7 @@ window.__ModuleLoader__.load({
 						lastClickAt = now;
 						gesture("wave");
 						emitHearts(3);
-						if (wasNapping) show("呼啊……醒啦！刚才梦到小鱼干山了~", 3600);
+						if (wasNapping) show("醒啦。刚才只是去看饭熟没熟。", 3600);
 						else show(pick(LINES.wave), 3000);
 						wasNapping = false;
 					}
@@ -892,10 +1185,23 @@ window.__ModuleLoader__.load({
 				}
 			}
 
+			function onPointerCancel(ev) {
+				if (!dragging || disposed) return;
+				finishDrag(ev);
+				wasNapping = false;
+				const now = performance.now();
+				if (notifyQueue.length > 0) {
+					clearNotifyOwnership();
+					pumpNotify(now);
+				} else if (!isNotifyActive(now)) {
+					setState("idle");
+				}
+			}
+
 			root.addEventListener("pointerdown", onPointerDown);
 			root.addEventListener("pointermove", onPointerMove);
 			root.addEventListener("pointerup", onPointerUp);
-			root.addEventListener("pointercancel", onPointerUp);
+			root.addEventListener("pointercancel", onPointerCancel);
 
 			// refresh the balance badge when the page becomes visible again
 			// (tab switch back / window focus); the very first mount is handled
@@ -924,20 +1230,29 @@ window.__ModuleLoader__.load({
 				const vw = document.documentElement.clientWidth;
 				applyPos(vw - PET_W - 28, Math.max(0, document.documentElement.clientHeight - PET_H - 28));
 			}
+			window.addEventListener("resize", fitPosToViewport);
 
 			raf = requestAnimationFrame(loop);
 
 			return {
 				queryAccount,
+				canShowIntro() {
+					return !disposed && !dragging && notifyQueue.length === 0 && !isNotifyActive();
+				},
+				observeSignal(sig, observedAt = performance.now()) {
+					if (disposed) return;
+					observeSessionTransitions(sig, observedAt, !document.hidden);
+				},
 				dispose() {
 					disposed = true;
 					cancelAnimationFrame(raf);
 					clearTimeout(badgeTimer);
 					document.removeEventListener("visibilitychange", onVisibility);
+					window.removeEventListener("resize", fitPosToViewport);
 					root.removeEventListener("pointerdown", onPointerDown);
 					root.removeEventListener("pointermove", onPointerMove);
 					root.removeEventListener("pointerup", onPointerUp);
-					root.removeEventListener("pointercancel", onPointerUp);
+					root.removeEventListener("pointercancel", onPointerCancel);
 				}
 			};
 		}
@@ -949,7 +1264,7 @@ window.__ModuleLoader__.load({
 			const bubbleRef = useRef(null);
 			const engineRef = useRef(null);
 
-			// Session snapshot: rows carry title / cwd / running / completed /
+			// Session snapshot: rows carry title / cwd / running /
 			// pendingInteraction / jobs; current marks the selected session.
 			const sig = props.useSessions
 				? props.useSessions((s) => {
@@ -961,7 +1276,6 @@ window.__ModuleLoader__.load({
 						rawTitle: r && r.title,
 						cwd: r && r.cwd,
 						running: !!(r && r.running),
-						completed: !!(r && r.completed),
 						blank: !!(r && r.blank),
 						pendingInteraction: !!(r && r.pendingInteraction),
 						jobs: (r && jobs[r.id]) || []
@@ -973,36 +1287,100 @@ window.__ModuleLoader__.load({
 			sigRef.current = sig;
 
 			// Bubble controller: structured content (title/meta/body), optional
-			// action button + manual close; hover pauses the hide timer.
+			// action button; hover pauses the hide timer.
 			//
 			//   show(text, ms, opts?)                      plain text bubble
 			//   show({title, meta, body}, ms, opts?)       structured bubble
-			//     opts = { action?: {label, fn}, kind?: 'done'|'failed'|'wait'|'balance' }
+			//     opts = { action?, kind?, onHoverChange? } (the last is an engine timing seam)
 			const show = useMemo(() => {
 				let timer = 0;
 				let hover = false;
-				let hoverBound = false;
-				const hideSoon = (ms) => {
+				let boundBubble = null;
+				let hoverOwner = null;
+				let hideAt = 0;
+				let remainingMs = 0;
+				const notifyHoverOwner = (owner, value) => {
+					try { owner?.(value); } catch { /* bubble timing must remain usable */ }
+				};
+				const setHoverOwner = (next) => {
+					const owner = typeof next === "function" ? next : null;
+					if (owner === hoverOwner) return;
+					if (hover && hoverOwner) notifyHoverOwner(hoverOwner, false);
+					hoverOwner = owner;
+					if (hover && hoverOwner) notifyHoverOwner(hoverOwner, true);
+				};
+				const cancelHide = () => {
 					clearTimeout(timer);
-					timer = setTimeout(() => {
-						if (!hover && bubbleRef.current) hide();
-					}, ms);
+					timer = 0;
+					hideAt = 0;
+					remainingMs = 0;
 				};
 				const hide = () => {
-					if (bubbleRef.current) bubbleRef.current.classList.remove("bwm-on");
+					cancelHide();
+					setHoverOwner(null);
+					hover = false;
+					if (bubbleRef.current) {
+						bubbleRef.current.textContent = "";
+						bubbleRef.current.className = "bwm-bubble";
+					}
+				};
+				const armHide = () => {
+					clearTimeout(timer);
+					if (remainingMs <= 0) {
+						hide();
+						return;
+					}
+					hideAt = performance.now() + remainingMs;
+					timer = setTimeout(() => {
+						timer = 0;
+						hideAt = 0;
+						remainingMs = 0;
+						if (!hover && bubbleRef.current) hide();
+					}, remainingMs);
+				};
+				const hideSoon = (ms) => {
+					clearTimeout(timer);
+					timer = 0;
+					hideAt = 0;
+					remainingMs = Math.max(0, ms);
+					if (!hover) armHide();
+				};
+				const onMouseEnter = () => {
+					hover = true;
+					if (hoverOwner) notifyHoverOwner(hoverOwner, true);
+					if (timer !== 0) {
+						remainingMs = Math.max(0, hideAt - performance.now());
+						clearTimeout(timer);
+						timer = 0;
+						hideAt = 0;
+					}
+				};
+				const onMouseLeave = () => {
+					if (hoverOwner) notifyHoverOwner(hoverOwner, false);
+					hover = false;
+					if (remainingMs > 0 && boundBubble?.classList.contains("bwm-on")) armHide();
+				};
+				const bindBubble = (bubble) => {
+					if (boundBubble === bubble) return;
+					if (boundBubble) {
+						boundBubble.removeEventListener("mouseenter", onMouseEnter);
+						boundBubble.removeEventListener("mouseleave", onMouseLeave);
+					}
+					boundBubble = bubble;
+					boundBubble.addEventListener("mouseenter", onMouseEnter);
+					boundBubble.addEventListener("mouseleave", onMouseLeave);
 				};
 				const showFn = (text, ms, opts) => {
 					const b = bubbleRef.current;
 					if (!b) return;
 					const action = opts && opts.action;
+					const hoverable = action || (opts && typeof opts.onHoverChange === "function");
 					const kind = opts && opts.kind ? ` bwm-kind-${opts.kind}` : "";
-					if (!hoverBound) {
-						hoverBound = true;
-						b.addEventListener("mouseenter", () => { hover = true; clearTimeout(timer); });
-						b.addEventListener("mouseleave", () => { hover = false; });
-					}
+					bindBubble(b);
+					setHoverOwner(opts && opts.onHoverChange);
 					b.textContent = "";
-					b.className = "bwm-bubble bwm-on" + (action ? " bwm-action" : "") + kind;
+					b.className = "bwm-bubble bwm-on" + (action ? " bwm-action" : "")
+						+ (hoverable ? " bwm-hoverable" : "") + kind;
 					if (typeof text === "object" && text !== null) {
 						if (text.balance !== undefined) {
 							// balance card: label → big value → divider → rows → meta
@@ -1078,7 +1456,23 @@ window.__ModuleLoader__.load({
 					}
 					// ms === 0 keeps the bubble until replaced; hover pauses otherwise
 					if (ms !== 0) hideSoon(ms ?? 3000);
+					else cancelHide();
 				};
+				showFn.dispose = () => {
+					const bubble = boundBubble ?? bubbleRef.current;
+					hide();
+					hover = false;
+					if (boundBubble) {
+						boundBubble.removeEventListener("mouseenter", onMouseEnter);
+						boundBubble.removeEventListener("mouseleave", onMouseLeave);
+						boundBubble = null;
+					}
+					if (bubble) {
+						bubble.textContent = "";
+						bubble.className = "bwm-bubble";
+					}
+				};
+				showFn.hide = hide;
 				return showFn;
 			}, []);
 
@@ -1091,24 +1485,41 @@ window.__ModuleLoader__.load({
 					openSession: props.openSession
 				});
 				engineRef.current = engine;
-				// one-time attribution notice
+				engine.observeSignal(sigRef.current, performance.now());
+				// One-time character introduction for this original v2 design.
+				let introTimer = 0;
 				try {
-					if (localStorage.getItem(STORE_KEY_CREDITED) !== "1") {
-						localStorage.setItem(STORE_KEY_CREDITED, "1");
-						setTimeout(() => show(pick(LINES.credit), 5200), 900);
+					if (localStorage.getItem(STORE_KEY_INTRODUCED) !== "1") {
+						introTimer = setTimeout(() => {
+							// First-run copy is disposable. Never let it replace a task notice,
+							// a user-requested balance card, or any other active bubble.
+							if (!engine.canShowIntro() || bubbleRef.current?.classList.contains("bwm-on")) return;
+							show(LINES.intro.join("\n"), 5200);
+							try { localStorage.setItem(STORE_KEY_INTRODUCED, "1"); } catch { /* ignore */ }
+						}, 900);
 					}
 				} catch { /* ignore */ }
 				// silently fetch the balance for the corner badge on mount
 				const first = setTimeout(() => { try { engine.queryAccount(true); } catch {} }, 1500);
-				return () => { clearTimeout(first); engine.dispose(); };
+				return () => {
+					clearTimeout(first);
+					clearTimeout(introTimer);
+					engine.dispose();
+					show.dispose?.();
+					if (engineRef.current === engine) engineRef.current = null;
+				};
 			}, [show, props.openSession]);
+
+			useEffect(() => {
+				engineRef.current?.observeSignal(sig, performance.now());
+			}, [sig]);
 
 			return h(
 				"div",
 				{
 					ref: rootRef,
 					className: "bwm-root",
-					title: "蓝鲸女仆 · 原作者 simashui（codex-pets.net）· DSH 插件 yuxino/dsh-blue-whale-maid"
+					title: "小鲸 · 原创蓝鲸女仆 · 非官方 DSH 社区插件"
 				},
 				h("div", { ref: bubbleRef, className: "bwm-bubble" }),
 				h("canvas", { ref: canvasRef, width: 192, height: 208 }),
@@ -1130,13 +1541,10 @@ window.__ModuleLoader__.load({
 
 		// ---------------------------------------------------------- plugin
 		/**
-		 * Services required by this plugin. `layout` is injected for ordering,
-		 * not for use: ui-layout's AppFrame entry declares the `shell.overlay`
-		 * slot when it mounts, and the cordis service dependency guarantees our
-		 * apply runs only after that declaration exists. `sessions` powers the
-		 * jump-to-session button on completion notifications.
+		 * `slots` mounts the companion after `shell.overlay` is declared;
+		 * `sessions` powers the jump-to-session button on notifications.
 		 */
-		const inject = ["slots", "layout", "sessions"];
+		const inject = ["slots", "sessions"];
 
 		/**
 		 * Registers the pet into the shell-wide floating layer.
@@ -1150,7 +1558,8 @@ window.__ModuleLoader__.load({
 					ctx.logger?.warn?.(error);
 				}
 			};
-			ctx.effect(
+			ctx.slots.inject(
+				"shell.overlay",
 				() =>
 					ctx.slots.register(
 						{
@@ -1160,8 +1569,7 @@ window.__ModuleLoader__.load({
 							label: "蓝鲸女仆"
 						},
 						(props) => h(WhaleMaidPet, { ...props, openSession })
-					),
-				"dsh-blue-whale-maid: shell.overlay entry"
+					)
 			);
 		}
 

@@ -2,12 +2,10 @@
 # sync-profile.sh — copy the freshly built lib/client.js into the installed
 # DSH profile copy so the client HMR poll sees the change.
 #
-# Why this exists: `dsh plugin add` installs this package into the profile's
-# node_modules as a *copy* (file: dependency, not a symlink). Editing the
-# source repo's lib/client.js never touches that copy, so the HMR watcher
-# (which stat-polls every plugin bundle ~every 500ms) sees no change and the
-# GUI keeps serving the old bundle. Copying the artifact in makes HMR pick it
-# up within ~1s — no dsh web restart, no page refresh.
+# Why this exists: a registry or GitHub install keeps a package copy inside the
+# profile's node_modules, separate from this source checkout. A local
+# `plugin --profile web add .` install is a symlink instead, so its built client
+# is already the same file and must not be copied onto itself.
 #
 # Usage:
 #   node tools/embed.mjs && ./tools/sync-profile.sh
@@ -28,8 +26,14 @@ if [ ! -f "$SRC" ]; then
 fi
 if [ ! -f "$TARGET" ]; then
 	echo "error: plugin not installed in profile '$PROFILE' ($TARGET)" >&2
-	echo "install it first: dsh plugin --profile $PROFILE add github:yuxino/dsh-blue-whale-maid" >&2
+	echo "install it first: npx --yes @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile $PROFILE add github:yuxino/dsh-blue-whale-maid" >&2
 	exit 1
+fi
+
+if [ "$SRC" -ef "$TARGET" ]; then
+	echo "profile '$PROFILE' already links this checkout; lib/client.js is current"
+	echo "restart dsh web to load the rebuilt bundle reliably"
+	exit 0
 fi
 
 cp "$SRC" "$TARGET"

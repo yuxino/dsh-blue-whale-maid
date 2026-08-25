@@ -1,9 +1,10 @@
 {
   "name": "dsh-blue-whale-maid",
   "version": "1.10.3",
-  "description": "Blue Whale Maid desktop pet and task notifier for DeepSeek Harness Web (artwork by simashui @ codex-pets.net)",
+  "description": "小鲸：陪你使用 DSH 的原创蓝鲸女仆桌宠与任务提醒伙伴",
   "type": "module",
   "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
   "exports": {
     ".": {
       "types": "./lib/types/index.d.ts",
@@ -21,19 +22,33 @@
     },
     "client": {
       "platform": "web",
-      "inject": [],
-      "immediately": true
+      "inject": []
     }
+  },
+  "scripts": {
+    "build": "node tools/embed.mjs",
+    "test": "node --test test/*.test.js",
+    "check": "npm run build && npm test && node --check lib/index.js && node --check lib/session-cost.js && node --check lib/pricing.js && node --check src/client.template.js",
+    "prepack": "npm run build"
   },
   "files": [
     "lib/*.js",
     "lib/types/*.d.ts",
     "assets/logo.gif",
     "cordis.patch.yml",
+    "docs/character-bible.md",
     "README.md",
     "CREDITS.md",
+    "THIRD_PARTY_NOTICES.md",
     "LICENSE"
   ],
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-credentials": "^0.1.1-rc.2"
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
   "license": "MIT",
   "keywords": [
     "dsh",
