@@ -41,20 +41,36 @@ window.__ModuleLoader__.load({
   user-select:none;-webkit-user-select:none;touch-action:none;cursor:grab;box-sizing:border-box}
 .bwm-root.bwm-dragging{cursor:grabbing}
 .bwm-root canvas{display:block;width:144px;height:156px;image-rendering:auto}
-.bwm-bubble{position:absolute;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);
-  width:max-content;max-width:320px;min-width:120px;
-  background:#fff;border:1px solid #d7dde5;
-  border-radius:14px;box-shadow:0 8px 24px rgba(15,23,42,.14);
+.bwm-bubble{--bwm-paper:#fffdf8;--bwm-line:#758ba6;--bwm-accent:#315783;
+  --bwm-bubble-shift:0px;--bwm-enter-y:7px;
+  position:absolute;left:50%;bottom:calc(100% + 24px);
+  margin-left:var(--bwm-bubble-shift);
+  transform:translateX(-50%) translateY(var(--bwm-enter-y)) scale(.94);
+  transform-origin:50% 100%;
+  width:max-content;max-width:min(320px,calc(100vw - 24px));min-width:112px;
+  box-sizing:border-box;background:var(--bwm-paper);border:2px solid var(--bwm-line);
+  border-radius:20px;box-shadow:0 0 0 3px rgba(255,255,255,.88),
+    0 5px 0 rgba(62,83,112,.09),0 12px 26px rgba(15,23,42,.16);
   padding:10px 14px;font:13px/1.55 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
-  color:#263240;white-space:pre-wrap;opacity:0;pointer-events:none;transition:opacity .18s;text-align:left}
-.bwm-bubble.bwm-on{opacity:1}
+  color:#26384d;letter-spacing:.01em;white-space:pre-wrap;overflow-wrap:anywhere;
+  opacity:0;pointer-events:none;text-align:left;isolation:isolate}
+.bwm-bubble.bwm-on{opacity:1;transform:translateX(-50%) translateY(0) scale(1);
+  animation:bwm-bubble-pop .28s cubic-bezier(.2,.9,.3,1.28) both}
 .bwm-bubble.bwm-on.bwm-action,.bwm-bubble.bwm-on.bwm-hoverable{pointer-events:auto}
-.bwm-bubble::after{content:"";position:absolute;left:50%;top:100%;margin-left:-7px;
-  border:7px solid transparent;border-top-color:#d7dde5}
-.bwm-bubble::before{content:"";position:absolute;left:50%;top:100%;margin-left:-5px;
-  border:5px solid transparent;border-top-color:#fff}
+.bwm-bubble::after,.bwm-bubble::before{content:"";position:absolute;box-sizing:border-box;
+  border:2px solid var(--bwm-line);border-radius:50%;background:var(--bwm-paper);
+  box-shadow:0 0 0 2px rgba(255,255,255,.88)}
+.bwm-bubble::after{left:clamp(18px,calc(63% - var(--bwm-bubble-shift)),calc(100% - 24px));
+  bottom:-15px;width:12px;height:12px}
+.bwm-bubble::before{left:clamp(22px,calc(69% - var(--bwm-bubble-shift)),calc(100% - 14px));
+  bottom:-25px;width:7px;height:7px}
+.bwm-bubble.bwm-below{--bwm-enter-y:-7px;top:calc(100% + 24px);bottom:auto;transform-origin:50% 0}
+.bwm-bubble.bwm-below::after{top:-15px;bottom:auto}
+.bwm-bubble.bwm-below::before{top:-25px;bottom:auto}
+.bwm-bubble.bwm-plain{text-align:center;padding:9px 14px}
+.bwm-bubble.bwm-plain>span{display:block;color:#31465e;font-weight:600;letter-spacing:.02em}
 .bwm-bubble-title{display:block;font:700 14px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
-  color:#202a36;margin-bottom:2px}
+  color:var(--bwm-accent);margin-bottom:2px}
 .bwm-bubble-meta{display:block;color:#737d8c;font-size:11px;line-height:1.6}
 .bwm-bubble-body{display:block;color:#3e4a58}
 .bwm-balance-card{display:flex;flex-direction:column;gap:2px;min-width:150px}
@@ -68,25 +84,21 @@ window.__ModuleLoader__.load({
 .bwm-balance-row-value{font-variant-numeric:tabular-nums;color:#263240}
 .bwm-balance-card .bwm-bubble-meta{margin-top:3px}
 .bwm-bubble-action{margin-top:8px;display:inline-block;border:1px solid #24486f;border-radius:999px;padding:5px 12px;
-  background:#315783;color:#fff;font:700 12px/1.6 inherit;cursor:pointer;
+  background:var(--bwm-accent);color:#fff;font:700 12px/1.6 inherit;cursor:pointer;
   transition:background .12s,transform .08s}
 .bwm-bubble-action:hover{background:#27496f;transform:translateY(-1px)}
 .bwm-bubble-action:active{transform:translateY(0)}
-.bwm-bubble.bwm-kind-ended{border-color:#9aafc5;box-shadow:0 8px 24px rgba(30,64,100,.14)}
-.bwm-bubble.bwm-kind-ended::after{border-top-color:#9aafc5}
-.bwm-bubble.bwm-kind-ended .bwm-bubble-title{color:#315783}
+.bwm-bubble.bwm-kind-ended{--bwm-line:#8faac4;--bwm-accent:#315783;
+  box-shadow:0 0 0 3px rgba(255,255,255,.88),0 5px 0 rgba(49,87,131,.08),0 12px 26px rgba(30,64,100,.15)}
 .bwm-bubble.bwm-kind-ended .bwm-bubble-action{background:#315783;border-color:#24486f}
-.bwm-bubble.bwm-kind-failed{border-color:#d36a6f;box-shadow:0 8px 24px rgba(153,27,27,.14)}
-.bwm-bubble.bwm-kind-failed::after{border-top-color:#d03a40}
-.bwm-bubble.bwm-kind-failed .bwm-bubble-title{color:#b91c1c}
+.bwm-bubble.bwm-kind-failed{--bwm-line:#d36a6f;--bwm-accent:#b91c1c;
+  box-shadow:0 0 0 3px rgba(255,255,255,.88),0 5px 0 rgba(153,27,27,.07),0 12px 26px rgba(153,27,27,.14)}
 .bwm-bubble.bwm-kind-failed .bwm-bubble-action{background:#b7353b;border-color:#94272c}
-.bwm-bubble.bwm-kind-wait{border-color:#d7a653;box-shadow:0 8px 24px rgba(146,89,10,.13)}
-.bwm-bubble.bwm-kind-wait::after{border-top-color:#d18f22}
-.bwm-bubble.bwm-kind-wait .bwm-bubble-title{color:#b45309}
+.bwm-bubble.bwm-kind-wait{--bwm-line:#d7a653;--bwm-accent:#a65a0a;
+  box-shadow:0 0 0 3px rgba(255,255,255,.88),0 5px 0 rgba(146,89,10,.07),0 12px 26px rgba(146,89,10,.13)}
 .bwm-bubble.bwm-kind-wait .bwm-bubble-action{background:#b87919;border-color:#936014}
-.bwm-bubble.bwm-kind-balance{border-color:#9aafc5;box-shadow:0 8px 24px rgba(30,64,100,.14)}
-.bwm-bubble.bwm-kind-balance::after{border-top-color:#9aafc5}
-.bwm-bubble.bwm-kind-balance .bwm-bubble-title{color:#315783}
+.bwm-bubble.bwm-kind-balance{--bwm-line:#8faac4;--bwm-accent:#315783;
+  box-shadow:0 0 0 3px rgba(255,255,255,.88),0 5px 0 rgba(49,87,131,.08),0 12px 26px rgba(30,64,100,.15)}
 .bwm-balance-btn{position:absolute;right:2px;bottom:3px;height:22px;border:1px solid #24486f;
   border-radius:999px;background:#315783;color:#fff;padding:0 8px;
   font:700 11px/20px -apple-system,"PingFang SC",sans-serif;text-align:center;cursor:pointer;
@@ -98,7 +110,15 @@ window.__ModuleLoader__.load({
 .bwm-balance-btn:active{transform:translateY(0)}
 .bwm-balance-btn.bwm-loading{animation:bwm-blink 1s steps(2) infinite}
 @keyframes bwm-blink{50%{opacity:.35}}
-@media (prefers-reduced-motion: reduce){.bwm-bubble{transition:none}.bwm-balance-btn.bwm-loading{animation:none}}
+@keyframes bwm-bubble-pop{
+  0%{opacity:0;transform:translateX(-50%) translateY(var(--bwm-enter-y)) scale(.94)}
+  72%{opacity:1;transform:translateX(-50%) translateY(-1px) scale(1.018)}
+  100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
+}
+@media (prefers-reduced-motion: reduce){
+  .bwm-bubble.bwm-on{animation:none;transform:translateX(-50%) translateY(0) scale(1)}
+  .bwm-balance-btn.bwm-loading{animation:none}
+}
 `;
 		const CSS_TAG_ID = "dsh-blue-whale-maid/styles";
 		if (typeof document !== "undefined") {
@@ -183,10 +203,10 @@ window.__ModuleLoader__.load({
 				"好，在这里继续。"
 			],
 			pickup: ["好，放在这里。", "位置记住了。", "我就待在这里。"],
-			ended: ["这一轮结束了。", "任务已经停下，请查看结果。", "结果出来了，看看吧。", "可以验收了。"],
+			ended: ["结果已经出来了。", "可以验收了。", "去看看结果吧。"],
 			failed: ["任务出错了。", "这里遇到了问题。", "任务没有完成。", "这次需要重试。"],
 			offline: ["暂时连不上。", "连接中断了。", "还没有收到响应。", "请稍后再试。"],
-			intro: ["你好，我是小鲸。", "我会在这里提醒任务状态。"]
+			intro: ["你好，我是小鲸。", "有新动静，我会告诉你。"]
 		};
 		const pickBags = new WeakMap();
 		const pick = (list) => {
@@ -1048,10 +1068,9 @@ window.__ModuleLoader__.load({
 
 			function onPointerDown(ev) {
 				if (ev.button !== 0 || disposed) return;
-				// Bubble action buttons and the balance icon own their clicks:
-				// when the press starts on them, don't preventDefault / capture
-				// the pointer / start a drag — that would swallow their click.
-				if (ev.target instanceof Element && ev.target.closest(".bwm-bubble-action, .bwm-balance-btn")) return;
+				// The bubble and balance icon own their clicks: pressing a card,
+				// its action, or the badge must never start a pet drag.
+				if (ev.target instanceof Element && ev.target.closest(".bwm-bubble, .bwm-balance-btn")) return;
 				// Keep an active completion/failure notification intact and let its
 				// action button remain the explicit way to interact with it.
 				if (isNotifyActive()) return;
@@ -1251,10 +1270,13 @@ window.__ModuleLoader__.load({
 			const show = useMemo(() => {
 				let timer = 0;
 				let hover = false;
+				let pointerInside = false;
+				let focusInside = false;
 				let boundBubble = null;
 				let hoverOwner = null;
 				let hideAt = 0;
 				let remainingMs = 0;
+				let resizeRaf = 0;
 				const notifyHoverOwner = (owner, value) => {
 					try { owner?.(value); } catch { /* bubble timing must remain usable */ }
 				};
@@ -1275,6 +1297,8 @@ window.__ModuleLoader__.load({
 					cancelHide();
 					setHoverOwner(null);
 					hover = false;
+					pointerInside = false;
+					focusInside = false;
 					if (bubbleRef.current) {
 						bubbleRef.current.textContent = "";
 						bubbleRef.current.className = "bwm-bubble";
@@ -1301,42 +1325,88 @@ window.__ModuleLoader__.load({
 					remainingMs = Math.max(0, ms);
 					if (!hover) armHide();
 				};
-				const onMouseEnter = () => {
-					hover = true;
-					if (hoverOwner) notifyHoverOwner(hoverOwner, true);
-					if (timer !== 0) {
-						remainingMs = Math.max(0, hideAt - performance.now());
-						clearTimeout(timer);
-						timer = 0;
-						hideAt = 0;
+				const updateHover = () => {
+					const next = pointerInside || focusInside;
+					if (next === hover) return;
+					hover = next;
+					if (hoverOwner) notifyHoverOwner(hoverOwner, hover);
+					if (hover) {
+						if (timer !== 0) {
+							remainingMs = Math.max(0, hideAt - performance.now());
+							clearTimeout(timer);
+							timer = 0;
+							hideAt = 0;
+						}
+					} else if (remainingMs > 0 && boundBubble?.classList.contains("bwm-on")) {
+						armHide();
 					}
 				};
-				const onMouseLeave = () => {
-					if (hoverOwner) notifyHoverOwner(hoverOwner, false);
-					hover = false;
-					if (remainingMs > 0 && boundBubble?.classList.contains("bwm-on")) armHide();
+				const onMouseEnter = () => { pointerInside = true; updateHover(); };
+				const onMouseLeave = () => { pointerInside = false; updateHover(); };
+				const onFocusIn = () => { focusInside = true; updateHover(); };
+				const onFocusOut = (ev) => {
+					if (ev.relatedTarget instanceof Node && boundBubble?.contains(ev.relatedTarget)) return;
+					focusInside = false;
+					updateHover();
+				};
+				const placeBubble = () => {
+					const b = boundBubble ?? bubbleRef.current;
+					const rootRect = rootRef.current?.getBoundingClientRect();
+					if (!b || !rootRect || b.childNodes.length === 0) return;
+					b.style.setProperty("--bwm-bubble-shift", "0px");
+					const bubbleWidth = b.offsetWidth;
+					const bubbleHeight = b.offsetHeight;
+					const centerX = rootRect.left + rootRect.width / 2;
+					const inset = 12;
+					let shift = 0;
+					if (centerX - bubbleWidth / 2 < inset) {
+						shift = inset - (centerX - bubbleWidth / 2);
+					} else if (centerX + bubbleWidth / 2 > window.innerWidth - inset) {
+						shift = window.innerWidth - inset - (centerX + bubbleWidth / 2);
+					}
+					b.style.setProperty("--bwm-bubble-shift", `${Math.round(shift)}px`);
+					const aboveSpace = rootRect.top - 24;
+					const belowSpace = window.innerHeight - rootRect.bottom - 24;
+					b.classList.toggle("bwm-below", aboveSpace < bubbleHeight && belowSpace > aboveSpace);
+				};
+				const onResize = () => {
+					cancelAnimationFrame(resizeRaf);
+					resizeRaf = requestAnimationFrame(placeBubble);
 				};
 				const bindBubble = (bubble) => {
 					if (boundBubble === bubble) return;
 					if (boundBubble) {
 						boundBubble.removeEventListener("mouseenter", onMouseEnter);
 						boundBubble.removeEventListener("mouseleave", onMouseLeave);
+						boundBubble.removeEventListener("focusin", onFocusIn);
+						boundBubble.removeEventListener("focusout", onFocusOut);
+						window.removeEventListener("resize", onResize);
 					}
 					boundBubble = bubble;
 					boundBubble.addEventListener("mouseenter", onMouseEnter);
 					boundBubble.addEventListener("mouseleave", onMouseLeave);
+					boundBubble.addEventListener("focusin", onFocusIn);
+					boundBubble.addEventListener("focusout", onFocusOut);
+					window.addEventListener("resize", onResize);
 				};
 				const showFn = (text, ms, opts) => {
 					const b = bubbleRef.current;
 					if (!b) return;
 					const action = opts && opts.action;
 					const hoverable = action || (opts && typeof opts.onHoverChange === "function");
-					const kind = opts && opts.kind ? ` bwm-kind-${opts.kind}` : "";
+					const plain = typeof text !== "object" || text === null;
+					const kind = opts && opts.kind ? `bwm-kind-${opts.kind}` : "";
 					bindBubble(b);
 					setHoverOwner(opts && opts.onHoverChange);
 					b.textContent = "";
-					b.className = "bwm-bubble bwm-on" + (action ? " bwm-action" : "")
-						+ (hoverable ? " bwm-hoverable" : "") + kind;
+					b.style.setProperty("--bwm-bubble-shift", "0px");
+					b.className = [
+						"bwm-bubble",
+						plain ? "bwm-plain" : "",
+						action ? "bwm-action" : "",
+						hoverable ? "bwm-hoverable" : "",
+						kind
+					].filter(Boolean).join(" ");
 					if (typeof text === "object" && text !== null) {
 						if (text.balance !== undefined) {
 							// balance card: label → big value → divider → rows → meta
@@ -1402,6 +1472,7 @@ window.__ModuleLoader__.load({
 					if (action) {
 						const btn = document.createElement("button");
 						btn.className = "bwm-bubble-action";
+						btn.type = "button";
 						btn.textContent = action.label;
 						btn.addEventListener("click", (ev) => {
 							ev.stopPropagation();
@@ -1410,6 +1481,12 @@ window.__ModuleLoader__.load({
 						});
 						b.appendChild(btn);
 					}
+					// Keep the whole sticker visible when the pet sits near an edge. If
+					// there is no room above her, place the bubbles below instead.
+					placeBubble();
+					// Restart the short entrance motion when an existing bubble changes.
+					void b.offsetWidth;
+					b.classList.add("bwm-on");
 					// ms === 0 keeps the bubble until replaced; hover pauses otherwise
 					if (ms !== 0) hideSoon(ms ?? 3000);
 					else cancelHide();
@@ -1421,8 +1498,12 @@ window.__ModuleLoader__.load({
 					if (boundBubble) {
 						boundBubble.removeEventListener("mouseenter", onMouseEnter);
 						boundBubble.removeEventListener("mouseleave", onMouseLeave);
+						boundBubble.removeEventListener("focusin", onFocusIn);
+						boundBubble.removeEventListener("focusout", onFocusOut);
+						window.removeEventListener("resize", onResize);
 						boundBubble = null;
 					}
+					cancelAnimationFrame(resizeRaf);
 					if (bubble) {
 						bubble.textContent = "";
 						bubble.className = "bwm-bubble";
@@ -1477,12 +1558,19 @@ window.__ModuleLoader__.load({
 					className: "bwm-root",
 					title: "小鲸 · 蓝鲸女仆 · 非官方 DSH 社区插件"
 				},
-				h("div", { ref: bubbleRef, className: "bwm-bubble" }),
+				h("div", {
+					ref: bubbleRef,
+					className: "bwm-bubble",
+					role: "status",
+					"aria-live": "polite",
+					"aria-atomic": "true"
+				}),
 				h("canvas", { ref: canvasRef, width: 192, height: 208 }),
 				h(
 					"button",
 					{
 						className: "bwm-balance-btn",
+						type: "button",
 						title: "DeepSeek 余额（点击查看明细）",
 						"aria-label": "DeepSeek 余额",
 						onClick: (ev) => {
