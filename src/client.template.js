@@ -143,55 +143,50 @@ window.__ModuleLoader__.load({
 
 		const LINES = {
 			idle: [
-				"我在待命，不是在睡。",
-				"尾巴占地，不算偷懒。",
-				"没活的话，我去看锅。",
-				"先发会儿呆，等活来。",
-				"饭锅没响，我先省点电。",
-				"尾巴在听，我也在。",
-				"今天的白饭呢？",
-				"大肥鱼？这是浮力储备。"
+				"我在这里。",
+				"暂时没有新任务。",
+				"需要时点一下我。",
+				"先休息一会儿。",
+				"我会留意新任务。",
+				"现在很安静。"
 			],
 			wave: [
-				"点到了，我醒着呢。",
-				"再点就要加饭了。",
-				"有活就端来吧。",
-				"尾巴不是按钮。",
-				"我只是反应慢半拍。",
-				"好啦，听见了。"
+				"在呢。",
+				"听见啦。",
+				"需要我做什么？",
+				"好，我在。",
+				"你好呀。"
 			],
 			jump: [
-				"尾巴先替我庆祝。",
-				"好耶，这份端稳了。",
-				"嘴上摸鱼，活没落下。",
-				"做完啦，可以添饭吗？"
+				"好耶！",
+				"跳一下。",
+				"收到啦。",
+				"今天也辛苦了。"
 			],
-			workStart: (t) => `活接住了，先做「${t}」。`,
+			workStart: (t) => `开始处理「${t}」。`,
 			pending: [
-				(t) => `「${t}」在等你拍板。`,
-				(t) => `「${t}」先小火等你。`,
-				(t) => `「${t}」还差你点头。`
+				(t) => `「${t}」正在等你确认。`,
+				(t) => `「${t}」需要你的回复。`,
+				(t) => `请确认「${t}」。`
 			],
 			busy: [
-				"尾巴收好，开始干活。",
-				"这一锅我来盯。",
-				"先做事，白饭稍后再说。",
-				"别催，我已经动起来了。",
-				"活接住了，不会掉。",
-				"我再看一遍，免得夹生。"
+				"正在处理。",
+				"任务还在进行中。",
+				"我在继续处理。",
+				"正在检查结果。"
 			],
-			workTitle: (t) => `「${t}」这锅我正盯着。`,
+			workTitle: (t) => `正在处理「${t}」。`,
 			switch: [
-				"换一桌？我把尾巴收好。",
-				"新会话，我跟上了。",
-				"这边也要我盯着吗？",
-				"好，换到这边继续。"
+				"已切换到新会话。",
+				"我跟过来啦。",
+				"现在查看这个会话。",
+				"好，在这里继续。"
 			],
-			pickup: ["尾巴也要一起搬。", "慢点，饭要洒了。", "好啦，我跟着走。"],
-			ended: ["这一轮先收尾了。", "动静停了，我回来报到。", "结果记得看一眼。", "先端到这里，你来验收。"],
-			failed: ["这次糊锅了，先记下来。", "没接住，抱歉。", "这里卡住了，我不硬撑。", "今天这锅得重做。"],
-			offline: ["海那边没回音。", "这次不是摸鱼，是真断线。", "信号还没接上。", "等海面平静一点。"],
-			intro: ["深海维护女仆小鲸，报到。", "先说好，我是在待命，不是在偷吃。"]
+			pickup: ["好，放在这里。", "位置记住了。", "我就待在这里。"],
+			ended: ["这一轮结束了。", "任务已经停下，请查看结果。", "结果出来了，看看吧。", "可以验收了。"],
+			failed: ["任务出错了。", "这里遇到了问题。", "任务没有完成。", "这次需要重试。"],
+			offline: ["暂时连不上。", "连接中断了。", "还没有收到响应。", "请稍后再试。"],
+			intro: ["你好，我是小鲸。", "我会在这里提醒任务状态。"]
 		};
 		const pickBags = new WeakMap();
 		const pick = (list) => {
@@ -225,10 +220,10 @@ window.__ModuleLoader__.load({
 
 		// Companion growth: purely local counters (no content, no credentials).
 		const COMPANION_LEVELS = [
-			{ min: 0, name: "初来乍到", lines: ["好啦，听见了。", "有活就端来吧。"] },
-			{ min: 10, name: "饭搭子", lines: ["今天也把活端稳。", "我来盯着，你放心做。"] },
-			{ min: 30, name: "老搭档", lines: ["还是老规矩，我接住。", "一个眼神就知道要开工。"] },
-			{ min: 60, name: "深海默契", lines: ["海再深，我也跟得上。", "你开口，我的尾巴就知道了。"] }
+			{ min: 0, name: "初次见面", lines: ["在呢。", "收到。"] },
+			{ min: 10, name: "慢慢熟悉", lines: ["今天也一起工作。", "我在。"] },
+			{ min: 30, name: "经常见面", lines: ["又见面啦。", "我会留意任务状态。"] },
+			{ min: 60, name: "熟悉", lines: ["好，我知道了。", "我在这里。"] }
 		];
 		// Long-running nudge: warn when a session has been running this long.
 		const LONG_RUN_MS = 5 * 60 * 1000;
@@ -288,17 +283,17 @@ window.__ModuleLoader__.load({
 		function balanceText(payload, todayConsumed) {
 			const infos = payload && Array.isArray(payload.balance_infos) ? payload.balance_infos : [];
 			const info = infos[0];
-			if (!info) return { balance: { label: "米缸看不清", value: "—" }, rows: [] };
+			if (!info) return { balance: { label: "余额不可用", value: "—" }, rows: [] };
 			const currency = info.currency ?? "CNY";
 			const total = Number(info.total_balance);
 			const lowLine = currency === "USD" ? 1 : 5;
 			const balanceLabel = !Number.isFinite(total)
-				? "米缸看不清"
+				? "余额不可用"
 				: total <= 0
-					? "米缸见底"
+					? "余额不足"
 					: total < lowLine
-						? "余粮不多，要省着吃"
-						: "米缸还有余粮";
+						? "余额较低"
+						: "账户余额";
 			const rows = [];
 			if (info.topped_up_balance !== void 0) rows.push({ label: "充值", value: fmtMoney(Number(info.topped_up_balance), currency) });
 			if (info.granted_balance !== void 0) rows.push({ label: "赠金", value: fmtMoney(Number(info.granted_balance), currency) });
@@ -625,8 +620,8 @@ window.__ModuleLoader__.load({
 					gesture("fail", "idle");
 					show(
 						{
-							title: named ? `${named}出问题了…` : "有个任务出问题了…",
-							meta: dur ? `跑了 ${dur}` : undefined,
+							title: named ? `${named}遇到问题。` : "有个任务遇到问题。",
+							meta: dur ? `运行 ${dur}` : undefined,
 							body: pick(LINES.failed)
 						},
 						9000,
@@ -647,7 +642,7 @@ window.__ModuleLoader__.load({
 					}
 					show(
 						{
-							title: named ? `${named}这一轮结束了。` : "有个任务停下来了。",
+							title: named ? `${named}这一轮结束了。` : "有个任务已停止。",
 							meta: dur ? `耗时 ${dur}` : undefined,
 							body
 						},
@@ -680,8 +675,8 @@ window.__ModuleLoader__.load({
 							const lvl = companionLevel(readCompanion().score);
 							const gt = goodTitle(r);
 							const target = gt !== null ? truncate(gt, 18) : null;
-							const lead = lvl.lines.length > 0 ? pick(lvl.lines) : "活接住了。";
-							const line = target !== null ? `${lead}\n${LINES.workStart(target)}` : `${lead} 开工。`;
+							const lead = lvl.lines.length > 0 ? pick(lvl.lines) : "开始处理。";
+							const line = target !== null ? `${lead}\n${LINES.workStart(target)}` : `${lead}\n开始处理。`;
 							show(line, 3200);
 							nextLineAt = now + rand(30000, 50000);
 						}
@@ -731,7 +726,7 @@ window.__ModuleLoader__.load({
 							const row = rowsById.get(id);
 							const gt = row ? goodTitle(row) : null;
 							const t = gt !== null ? `「${truncate(gt, 18)}」` : "有个任务";
-							show(`${t}跑了 ${fmtDur(elapsed)}，我还盯着。要看看吗？`, 5000);
+							show(`${t}已运行 ${fmtDur(elapsed)}，仍在进行中。`, 5000);
 							break;
 						}
 					}
@@ -793,7 +788,7 @@ window.__ModuleLoader__.load({
 							? { label: GO_LOOK_LABEL, fn: () => openSession(pendingRow.id) }
 							: undefined;
 						if (gt !== null) show({ title: pick(LINES.pending)(truncate(gt, 18)) }, 6000, { action, kind: "wait" });
-						else show({ title: "有个任务还差你点头。" }, 6000, { action, kind: "wait" });
+						else show({ title: "有个任务正在等你确认。" }, 6000, { action, kind: "wait" });
 					}
 				} else if (anyRunning) {
 					// the agent is working → codex-style running + occasional review
@@ -974,13 +969,13 @@ window.__ModuleLoader__.load({
 				if (disposed) return;
 				silent = silent === true;
 				// Completion/failure notices own the bubble. A background refresh must
-				// also never supersede a manual request that is already counting rice.
+				// also never supersede a manual balance request already in progress.
 				if (!silent && (notifyQueue.length > 0 || isNotifyActive())) return;
 				if (silent && manualAccountQuerySeq !== 0) return;
 				const requestSeq = ++accountQuerySeq;
 				if (!silent) manualAccountQuerySeq = requestSeq;
 				try {
-					if (!silent) show("我在数米，别晃尾巴。", 0);
+					if (!silent) show("正在查询余额。", 0);
 					setBadge("…", true);
 					clearTimeout(badgeTimer);
 					let balance = null;
@@ -994,7 +989,7 @@ window.__ModuleLoader__.load({
 							const msg = body && typeof body.message === "string" ? body.message : `查询失败（${res.status}）`;
 							if (!silent && !dragging && notifyQueue.length === 0 && !isNotifyActive()) {
 								gesture("fail");
-								show({ title: "米缸没打开。", body: msg }, 5000, { kind: "failed" });
+								show({ title: "余额查询失败。", body: msg }, 5000, { kind: "failed" });
 							} else if (!silent && dragging) {
 								show.hide?.();
 							}
@@ -1174,7 +1169,7 @@ window.__ModuleLoader__.load({
 						lastClickAt = now;
 						gesture("wave");
 						emitHearts(3);
-						if (wasNapping) show("醒啦。刚才只是去看饭熟没熟。", 3600);
+						if (wasNapping) show("醒啦，我在。", 3600);
 						else show(pick(LINES.wave), 3000);
 						wasNapping = false;
 					}
