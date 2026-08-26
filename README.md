@@ -5,7 +5,7 @@
 <h1 align="center">小鲸 · 蓝鲸女仆</h1>
 
 <p align="center">
-  一只住在 DeepSeek Harness 页面边缘的原创蓝鲸女仆。<br>
+  一只住在 DeepSeek Harness 页面边缘的 Q 版蓝鲸女仆。<br>
   她会跟随会话状态改变动作，在任务需要确认、结束或失败时给出简短提醒。
 </p>
 
@@ -24,7 +24,7 @@
 | 子任务失败 | 尾鳍垂下并显示失败提醒 |
 | 全部安静 | 保持待机，稍后进入休息动作 |
 
-单击会挥手，双击会跳一下，也可以拖到喜欢的位置。互动分数只保存在浏览器本地；不同阶段会轮换少量开工提示。
+单击会挥手，双击会跳一下，也可以拖到喜欢的位置；位置只保存在浏览器本地。
 
 空白会话和 3 秒内结束的短动作不会弹出普通结束提醒；新观察到的子任务失败仍会提醒。
 
@@ -80,9 +80,9 @@ npx --yes @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web remove dsh-blue-whale
 
 ## 小鲸是谁
 
-DeepSeek 官方使用鲸形标志，但没有发布鲸鱼娘的姓名、性别、服装或人格设定。蓝发、鲸尾与女仆装等形象来自社区二创，不是官方设定。
+DeepSeek 官方使用鲸形标志，但没有发布鲸鱼娘的姓名、性别、服装或人格设定。小鲸沿用原蓝鲸女仆的长蓝发、女仆装和鲸尾造型，并为桌宠重新制作成 Q 版动作；她不是 DeepSeek 官方角色。
 
-小鲸的具体外观、动作和台词均为本项目原创设计，没有使用现有创作者的立绘或表情包。完整边界见 [角色设定](./docs/character-bible.md)。
+具体外观与表达边界见 [角色设定](./docs/character-bible.md)，美术来源与许可说明见 [CREDITS.md](./CREDITS.md)。
 
 ## 源码仓库开发
 
@@ -106,11 +106,11 @@ npx --yes @deepseek-ai/dsh@0.1.1-rc.2 web --no-open
 
 ### 真实 DSH 验收
 
-当前版本已在真实的 DeepSeek Harness `0.1.1-rc.2` Web profile 验收：插件启动、素材渲染、单击与双击动作、拖动和位置保存、余额卡片、当前会话费用接口，以及从桌面宽度缩到 `640 × 720` 的视口变化都通过；浏览器控制台与 Host 日志没有报错。
+当前 `1.10.4` 已在真实的 DeepSeek Harness `0.1.1-rc.2` Web profile 验收：Q 版图集渲染、单击与双击动作、拖动和位置保存、真实任务的开始与结束提醒、余额卡片、当前会话费用，以及从桌面宽度缩到 `640 × 720` 的视口变化都通过；浏览器控制台与 Host 日志没有报错。
 
 ## 署名与许可
 
-- 小鲸的角色方案、美术与动画为本项目原创制作；不是 DeepSeek 官方素材。
-- 插件与项目原创资产使用 [MIT License](./LICENSE)。DeepSeek 与 DeepSeek Harness 的名称、标志和商标权利仍归各自权利方所有。
+- 小鲸以前一版由 **simashui** 署名的桌宠素材为原型，重新制作了 Q 版动画。她不是 DeepSeek 官方角色。
+- 插件代码使用 [MIT License](./LICENSE)；角色美术与衍生预览不在 MIT 范围内。DeepSeek 与 DeepSeek Harness 的名称、标志和商标权利仍归各自权利方所有。
 - 定价引擎改编自 MIT 项目 [bpc-oss/dsh-web-billing](https://github.com/bpc-oss/dsh-web-billing)，完整声明见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
 - 设计与资料来源说明见 [CREDITS.md](./CREDITS.md)。

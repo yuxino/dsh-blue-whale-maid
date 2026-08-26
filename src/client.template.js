@@ -10,7 +10,7 @@
  * draggable, session-aware desktop pet that doubles as a task-completion
  * notifier.
  *
- * Character and animation: original fan-made companion for this project.
+ * Character and animation: a fan-made chibi adaptation for this project.
  * It is not an official DeepSeek character or endorsed brand mascot.
  * Sprite layout: Codex Pet v2 atlas, 8 cols x 11 rows, cell 192x208:
  *   0 idle · 1 running-right · 2 running-left · 3 waving · 4 jumping
@@ -216,15 +216,6 @@ window.__ModuleLoader__.load({
 
 		const STORE_KEY_POS = "dsh-blue-whale-maid:pos";
 		const STORE_KEY_INTRODUCED = "dsh-blue-whale-maid:introduced:v2";
-		const STORE_KEY_COMPANION = "dsh-blue-whale-maid:companion";
-
-		// Companion growth: purely local counters (no content, no credentials).
-		const COMPANION_LEVELS = [
-			{ min: 0, name: "初次见面", lines: ["在呢。", "收到。"] },
-			{ min: 10, name: "慢慢熟悉", lines: ["今天也一起工作。", "我在。"] },
-			{ min: 30, name: "经常见面", lines: ["又见面啦。", "我会留意任务状态。"] },
-			{ min: 60, name: "熟悉", lines: ["好，我知道了。", "我在这里。"] }
-		];
 		// Long-running nudge: warn when a session has been running this long.
 		const LONG_RUN_MS = 5 * 60 * 1000;
 		const NUDGE_INTERVAL_MS = 3 * 60 * 1000;
@@ -240,28 +231,6 @@ window.__ModuleLoader__.load({
 			const min = m % 60;
 			return min > 0 ? `${h} 小时 ${min} 分` : `${h} 小时`;
 		};
-
-		// Companion counter (local-only, no content).
-		function readCompanion() {
-			try {
-				const raw = JSON.parse(localStorage.getItem(STORE_KEY_COMPANION));
-				if (raw && typeof raw.score === "number") return { score: raw.score };
-			} catch { /* ignore */ }
-			return { score: 0 };
-		}
-		function addCompanion(n) {
-			const cur = readCompanion();
-			const score = Math.min(100, cur.score + n);
-			try {
-				localStorage.setItem(STORE_KEY_COMPANION, JSON.stringify({ score }));
-			} catch { /* storage unavailable — session-only growth */ }
-			return score;
-		}
-		function companionLevel(score) {
-			let level = COMPANION_LEVELS[0];
-			for (const l of COMPANION_LEVELS) if (score >= l.min) level = l;
-			return level;
-		}
 
 		// ---- DeepSeek account info (the credential is never sent to the browser)
 		const BALANCE_ROUTE = "/api/blue-whale-maid/balance";
@@ -630,16 +599,11 @@ window.__ModuleLoader__.load({
 				} else {
 					gesture("wave", "idle");
 					emitHearts(3);
-					const score = addCompanion(1);
-					const level = companionLevel(score);
 					let body = pick(LINES.ended);
 					const queuedEnded = notifyQueue.filter((entry) => entry.kind === "ended").length;
 					const queuedFailed = notifyQueue.filter((entry) => entry.kind === "failed").length;
 					if (queuedEnded > 0) body += `\n还有 ${queuedEnded} 个任务也结束了`;
 					if (queuedFailed > 0) body += `\n另有 ${queuedFailed} 个任务出了问题`;
-					if (level.min > 0 && (score === level.min || score === level.min + 1)) {
-						body += `\n${level.name} · ${score} 分`;
-					}
 					show(
 						{
 							title: named ? `${named}这一轮结束了。` : "有个任务已停止。",
@@ -672,11 +636,9 @@ window.__ModuleLoader__.load({
 							notifyQueue.length === 0 &&
 							!isNotifyActive(now)
 						) {
-							const lvl = companionLevel(readCompanion().score);
 							const gt = goodTitle(r);
 							const target = gt !== null ? truncate(gt, 18) : null;
-							const lead = lvl.lines.length > 0 ? pick(lvl.lines) : "开始处理。";
-							const line = target !== null ? `${lead}\n${LINES.workStart(target)}` : `${lead}\n开始处理。`;
+							const line = target !== null ? LINES.workStart(target) : "开始处理。";
 							show(line, 3200);
 							nextLineAt = now + rand(30000, 50000);
 						}
@@ -1163,7 +1125,6 @@ window.__ModuleLoader__.load({
 						lastClickAt = null;
 						gesture("jump");
 						emitHearts(6);
-						addCompanion(1);
 						show(pick(LINES.jump), 3200);
 					} else {
 						lastClickAt = now;
@@ -1481,7 +1442,7 @@ window.__ModuleLoader__.load({
 				});
 				engineRef.current = engine;
 				engine.observeSignal(sigRef.current, performance.now());
-				// One-time character introduction for this original v2 design.
+				// One-time character introduction for this chibi v2 design.
 				let introTimer = 0;
 				try {
 					if (localStorage.getItem(STORE_KEY_INTRODUCED) !== "1") {
@@ -1514,7 +1475,7 @@ window.__ModuleLoader__.load({
 				{
 					ref: rootRef,
 					className: "bwm-root",
-					title: "小鲸 · 原创蓝鲸女仆 · 非官方 DSH 社区插件"
+					title: "小鲸 · 蓝鲸女仆 · 非官方 DSH 社区插件"
 				},
 				h("div", { ref: bubbleRef, className: "bwm-bubble" }),
 				h("canvas", { ref: canvasRef, width: 192, height: 208 }),

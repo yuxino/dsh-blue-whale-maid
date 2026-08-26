@@ -1,7 +1,7 @@
 {
   "name": "dsh-blue-whale-maid",
-  "version": "1.10.3",
-  "description": "小鲸：陪你使用 DSH 的原创蓝鲸女仆桌宠与任务提醒伙伴",
+  "version": "1.10.4",
+  "description": "小鲸：陪你使用 DSH 的 Q 版蓝鲸女仆桌宠与任务提醒伙伴",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
@@ -49,7 +49,7 @@
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
   },
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "keywords": [
     "dsh",
     "deepseek-harness",
