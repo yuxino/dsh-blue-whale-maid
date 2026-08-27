@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="./assets/logo.gif" width="180" alt="小鲸挥挥尾巴">
+  <img src="./assets/logo.gif" width="180" alt="汐汐挥挥尾巴">
 </p>
 
-<h1 align="center">小鲸 · 蓝鲸女仆</h1>
+<h1 align="center">汐汐 · 蓝鲸女仆</h1>
 
 <p align="center">
   一只住在 DeepSeek Harness 页面边缘的 Q 版蓝鲸女仆。<br>
@@ -13,9 +13,9 @@
 
 ## 她会做什么
 
-小鲸会跟着 DSH 会话状态换动作：
+汐汐会跟着 DSH 会话状态换动作：
 
-| 眼前发生的事 | 小鲸会做什么 |
+| 眼前发生的事 | 汐汐会做什么 |
 | --- | --- |
 | 任务开始 | 进入工作动作并显示任务标题 |
 | 正在处理 | 保持工作动作，偶尔切换为检查动作 |
@@ -78,9 +78,9 @@ npx --yes @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web remove dsh-blue-whale
 
 卸载后重启 DSH。
 
-## 小鲸是谁
+## 汐汐是谁
 
-DeepSeek 官方使用鲸形标志，但没有发布鲸鱼娘的姓名、性别、服装或人格设定。小鲸沿用原蓝鲸女仆的长蓝发、女仆装和鲸尾造型，并为桌宠重新制作成 Q 版动作；她不是 DeepSeek 官方角色。
+DeepSeek 官方使用鲸形标志，但没有发布鲸鱼娘的姓名、性别、服装或人格设定。汐汐沿用此前蓝鲸女仆素材的长蓝发、女仆装和鲸尾造型，并为桌宠重新制作成 Q 版动作；她不是 DeepSeek 官方角色。
 
 具体外观与表达边界见 [角色设定](./docs/character-bible.md)，美术来源与许可说明见 [CREDITS.md](./CREDITS.md)。
 
@@ -106,11 +106,11 @@ npx --yes @deepseek-ai/dsh@0.1.1-rc.2 web --no-open
 
 ### 真实 DSH 验收
 
-当前 `1.10.5` 已在真实的 DeepSeek Harness `0.1.1-rc.2` Web profile 验收：Q 版图集渲染、单击与双击动作、拖动和位置保存、贴纸气泡的屏幕边缘避让、真实任务的开始与结束提醒、余额卡片、当前会话费用，以及从桌面宽度缩到 `640 × 720` 的视口变化都通过；浏览器控制台与 Host 日志没有报错。
+当前 `1.10.6` 已在真实的 DeepSeek Harness `0.1.1-rc.2` Web profile 验收：Q 版图集渲染、单击与双击动作、拖动和位置保存、贴纸气泡的屏幕边缘避让、真实任务的开始与结束提醒、余额卡片、当前会话费用，以及从桌面宽度缩到 `640 × 720` 的视口变化都通过；浏览器控制台与 Host 日志没有报错。
 
 ## 署名与许可
 
-- 小鲸以前一版由 **simashui** 署名的桌宠素材为原型，重新制作了 Q 版动画。她不是 DeepSeek 官方角色。
+- 汐汐以此前一版由 **simashui** 署名的蓝鲸女仆桌宠素材为视觉原型，重新制作了 Q 版动画。她不是 DeepSeek 官方角色。
 - 插件代码使用 [MIT License](./LICENSE)；角色美术与衍生预览不在 MIT 范围内。DeepSeek 与 DeepSeek Harness 的名称、标志和商标权利仍归各自权利方所有。
 - 定价引擎改编自 MIT 项目 [bpc-oss/dsh-web-billing](https://github.com/bpc-oss/dsh-web-billing)，完整声明见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
 - 设计与资料来源说明见 [CREDITS.md](./CREDITS.md)。
