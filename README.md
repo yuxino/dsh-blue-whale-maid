@@ -5,58 +5,57 @@
 <h1 align="center">汐汐 · 蓝鲸女仆</h1>
 
 <p align="center">
-  一只住在 DeepSeek Harness 页面边缘的 Q 版蓝鲸女仆。<br>
-  她会跟随会话状态改变动作，在任务需要确认、结束或失败时给出简短提醒。
+  我给 DeepSeek Harness Web 做了一只蓝鲸女仆桌宠，叫汐汐。<br>
+  她住在网页边上。任务开跑、等你确认、一轮结束或出了问题，她都会换个动作提醒你。
 </p>
 
 <p align="center"><strong>非官方同人插件，与 DeepSeek 官方无隶属、合作或背书关系。</strong></p>
 
-## 她会做什么
+## 汐汐会做什么
 
-汐汐会跟着 DSH 会话状态换动作：
+汐汐会跟着当前会话一起忙。任务状态一变，她也会有反应：
 
-| 眼前发生的事 | 汐汐会做什么 |
+| 任务状态 | 汐汐的反应 |
 | --- | --- |
-| 任务开始 | 进入工作动作并显示任务标题 |
-| 正在处理 | 保持工作动作，偶尔切换为检查动作 |
-| 等你确认 | 进入等待动作并显示确认提醒 |
-| 一轮工作结束 | 显示结束状态与耗时；其他会话可一键打开 |
-| 子任务失败 | 尾鳍垂下并显示失败提醒 |
-| 全部安静 | 保持待机，稍后进入休息动作 |
+| 开始或正在处理 | 开始工作，偶尔看看进度 |
+| 等你确认 | 停下来等你，并冒泡提醒 |
+| 一轮结束 | 告诉你这轮结束了，也会显示用了多久 |
+| 子任务失败 | 垂下尾鳍，提醒你这里出了问题 |
+| 暂时没事 | 安静待着，过一会儿会休息 |
 
-单击会挥手，双击会跳一下，也可以拖到喜欢的位置；位置只保存在浏览器本地。
+你可以把她拖到顺手的位置。点一下会挥手，双击会跳一下。位置只记在当前浏览器里。
 
-空白会话和 3 秒内结束的短动作不会弹出普通结束提醒；新观察到的子任务失败仍会提醒。
+空白会话，或者 3 秒内结束的小动作，不会专门弹一个“结束”提醒；但子任务出了问题，她还是会提醒。
 
-提示只描述能够确认的状态，不复述命令，也不猜测任务结果。同组短句会轮换后再出现，避免连续重复。
+为了不乱报，汐汐只说自己能确定的状态。她不复述命令，也不会把“一轮结束”说成“任务成功”。提示语会轮换，尽量不连续重复。
 
 ## 余额和费用估算
 
-右下角的余额按钮可以查看：
+点右下角的余额按钮，可以看：
 
-- DeepSeek 账户当前余额；
-- 按本机当天连续观察到的余额下降累计的“今日约消费”；
-- 当前会话的 DeepSeek API 费用估算。
+- DeepSeek 账户当前余额
+- 按本机当天余额变化估算的“今日约消费”
+- 当前会话大约用了多少 DeepSeek API 费用
 
-说明：
+这些数字只适合做参考：
 
-1. API key 由 DSH host 端从凭证服务解析，不会下发给浏览器；host 只允许本机访问这两个财务接口，并把 key 作为 Bearer 凭证请求配置的 DeepSeek-compatible 余额接口。
-2. “今日约消费”是本机逐段观察到的余额下降，不是官方账单；充值不会清掉已经观察到的消费，但赠金变化、其他设备或应用共用同一 key 仍可能影响结果。升级后的第一次查询只建立基线，暂不显示估算。
-3. “本会话已用”只估算能确认来自 `deepseek-official` provider、且被内置价格表明确点名的 usage 事件；遇到未定价模型会直接标明，不会假装成 `¥0`。没有 usage 的失败请求、日志裁剪、政策更新或官方结算口径都可能造成偏差，请以 DeepSeek 控制台为准。
+1. `API Key` 由 DSH 服务端从凭证服务读取，不会传给浏览器。余额和会话费用接口只能从本机访问；服务端会用这个 Key 请求已经配置好的 DeepSeek 兼容余额接口。
+2. “今日约消费”根据本机当天每次查询之间的余额下降累计，不是官方账单。充值不会清零已经记录的消费；赠金变化，或其他设备和应用共用同一个 Key，都会影响结果。升级后的第一次查询只会建立基线，暂时不会显示估算。
+3. “本会话已用”只统计来源可以确认为 `deepseek-official`、而且已经写进价格表的模型。未定价模型会明确标出，不会显示成 `¥0`。失败请求没有 usage、日志被裁剪或价格规则更新时，估算可能与官方账单不同，请以 DeepSeek 控制台为准。
 
-费用估算会区分工作日与周末的峰谷时段：北京时间周一至周五 09:00–12:00、14:00–18:00 按高峰价，其余时间按低谷价。价格来源以 [DeepSeek API 官方定价页](https://api-docs.deepseek.com/quick_start/pricing/) 为准。
+估算时会按 DeepSeek 的峰谷价来算：北京时间周一至周五 09:00–12:00、14:00–18:00 使用高峰价，其余时间使用低谷价。价格以 [DeepSeek API 官方定价页](https://api-docs.deepseek.com/quick_start/pricing/) 为准。
 
 ## 安装
 
-需要 Node.js `^22.19.0` 或 `>=24.0.0`，以及可用的 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web profile；余额功能还需要该 profile 能解析 `DEEPSEEK_API_KEY`。余额不可用时，桌宠与任务提醒仍可正常工作。
+安装前需要 Node.js `^22.19.0` 或 `>=24.0.0`，以及可用的 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web profile。查看余额还要求这个 profile 已配置 `DEEPSEEK_API_KEY`；即使余额不可用，桌宠和任务提醒也能正常使用。
 
-下面固定使用本项目实测过的 DSH `0.1.1-rc.2`，电脑上没有全局 `dsh` 命令也可以直接安装：
+下面的命令固定使用本项目实测过的 DSH `0.1.1-rc.2`。电脑上没有全局 `dsh` 命令也可以直接运行：
 
 ```sh
 npx --yes @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web add github:yuxino/dsh-blue-whale-maid
 ```
 
-添加或更新 Bundle 后要停掉原先的 Web 进程，再重新启动：
+装好以后，把正在运行的 DSH Web 停掉再开一次：
 
 ```sh
 npx --yes @deepseek-ai/dsh@0.1.1-rc.2 web
@@ -68,7 +67,7 @@ npx --yes @deepseek-ai/dsh@0.1.1-rc.2 web
 npx --yes @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web update dsh-blue-whale-maid
 ```
 
-更新后同样要重启 DSH。Bundle、host 逻辑、依赖或素材变化都不能只靠刷新网页。
+更新后也要重启 DSH。Bundle、服务端逻辑、依赖或素材有变化时，只刷新网页不够。
 
 ### 卸载
 
@@ -76,15 +75,15 @@ npx --yes @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web update dsh-blue-whale
 npx --yes @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web remove dsh-blue-whale-maid
 ```
 
-卸载后重启 DSH。
+卸载后同样重启一次 DSH。
 
 ## 汐汐是谁
 
-DeepSeek 官方使用鲸形标志，但没有发布鲸鱼娘的姓名、性别、服装或人格设定。汐汐沿用此前蓝鲸女仆素材的长蓝发、女仆装和鲸尾造型，并为桌宠重新制作成 Q 版动作；她不是 DeepSeek 官方角色。
+DeepSeek 官方用的是鲸鱼标志，但没有发布过鲸鱼娘的姓名、性别、服装或性格设定。汐汐沿用了此前蓝鲸女仆素材的长蓝发、女仆装和鲸尾造型，又重新做成了适合网页桌宠的 Q 版动作。她不是 DeepSeek 官方角色。
 
 具体外观与表达边界见 [角色设定](./docs/character-bible.md)，美术来源与许可说明见 [CREDITS.md](./CREDITS.md)。
 
-## 源码仓库开发
+## 本地开发
 
 ```sh
 npm run build   # 把 assets/spritesheet.webp 嵌入 lib/client.js
@@ -92,7 +91,7 @@ npm test        # 定价与会话费用回归测试
 npm run check   # 构建、测试与语法检查
 ```
 
-把当前 checkout 接进真实 Web profile 时，从仓库根目录运行：
+要让真实的 Web profile 使用当前仓库，从仓库根目录运行：
 
 ```sh
 npx --yes @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web add .
@@ -100,13 +99,13 @@ npx --yes @deepseek-ai/dsh@0.1.1-rc.2 --profile web --dump-config
 npx --yes @deepseek-ai/dsh@0.1.1-rc.2 web --no-open
 ```
 
-`add .` 会把 profile 依赖写成指向当前 checkout 的本地链接。改代码后先重新构建，再重启 DSH；改了 `package.json`、依赖或 `cordis.patch.yml` 时，再执行一次 `add .` 让 profile 重新对账。
+`add .` 会让 profile 通过本地链接使用当前仓库。改代码后先重新构建，再重启 DSH；如果修改了 `package.json`、依赖或 `cordis.patch.yml`，还要重新执行一次 `add .` 更新依赖信息。
 
-`tools/sync-profile.sh` 只给“安装成独立副本”的 profile 同步浏览器 bundle；如果 profile 已经链接当前 checkout，它会直接说明无需复制。host、Bundle 与素材更新仍以重启 DSH 为准。
+`tools/sync-profile.sh` 只用于把浏览器 Bundle 同步到独立安装的 profile。如果 profile 已经通过本地链接指向当前仓库，脚本会跳过复制并给出提示。修改服务端、Bundle 或素材后仍需重启 DSH。
 
 ### 真实 DSH 验收
 
-当前 `1.10.6` 已在真实的 DeepSeek Harness `0.1.1-rc.2` Web profile 验收：Q 版图集渲染、单击与双击动作、拖动和位置保存、贴纸气泡的屏幕边缘避让、真实任务的开始与结束提醒、余额卡片、当前会话费用，以及从桌面宽度缩到 `640 × 720` 的视口变化都通过；浏览器控制台与 Host 日志没有报错。
+当前 `1.10.6` 已经在 DeepSeek Harness `0.1.1-rc.2` 的真实 Web profile 里实际跑过。图集、点击与拖动、气泡避让、任务提醒、余额和会话费用都逐项检查过；视口缩小到 `640 × 720` 时也没有布局问题。检查时浏览器控制台和 Host 日志均无报错。
 
 ## 署名与许可
 
