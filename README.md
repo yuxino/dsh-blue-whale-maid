@@ -85,13 +85,4 @@ npx --yes @deepseek-ai/dsh web --no-open
 
 </details>
 
-## 关于
-
-这个桌宠以此前由 **simashui** 署名的蓝鲸女仆素材为视觉原型，重新制作了适合网页桌宠的 Q 版动作。她不是 DeepSeek 官方角色。
-
-- [角色设定](./docs/character-bible.md)
-- [美术来源与许可](./CREDITS.md)
-- [第三方代码声明](./THIRD_PARTY_NOTICES.md)
-- [代码许可证](./LICENSE)
-
 如果她让 DSH 好用了一点，欢迎点一下页面右上角的 ⭐ Star。这样我能知道，确实有人想让这个小插件继续更新。
