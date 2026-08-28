@@ -28,13 +28,13 @@
 需要 Node.js `^22.19.0` 或 `>=24.0.0`，以及可用的 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web profile。
 
 ```sh
-npx --yes @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web add github:yuxino/dsh-blue-whale-maid
+npx --yes @deepseek-ai/dsh plugin --profile web add github:yuxino/dsh-blue-whale-maid
 ```
 
 装好后重启 DSH Web：
 
 ```sh
-npx --yes @deepseek-ai/dsh@0.1.1-rc.2 web
+npx --yes @deepseek-ai/dsh web
 ```
 
 她会出现在网页右下角。余额功能还需要当前 profile 配置 `DEEPSEEK_API_KEY`；没有 Key 时，桌宠和任务提醒仍然能用。
@@ -51,13 +51,13 @@ npx --yes @deepseek-ai/dsh@0.1.1-rc.2 web
 更新：
 
 ```sh
-npx --yes @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web update dsh-blue-whale-maid
+npx --yes @deepseek-ai/dsh plugin --profile web update dsh-blue-whale-maid
 ```
 
 卸载：
 
 ```sh
-npx --yes @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web remove dsh-blue-whale-maid
+npx --yes @deepseek-ai/dsh plugin --profile web remove dsh-blue-whale-maid
 ```
 
 更新或卸载后都要重启 DSH Web。
@@ -76,9 +76,9 @@ npm run check
 让 Web profile 直接使用当前仓库：
 
 ```sh
-npx --yes @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web add .
-npx --yes @deepseek-ai/dsh@0.1.1-rc.2 --profile web --dump-config
-npx --yes @deepseek-ai/dsh@0.1.1-rc.2 web --no-open
+npx --yes @deepseek-ai/dsh plugin --profile web add .
+npx --yes @deepseek-ai/dsh --profile web --dump-config
+npx --yes @deepseek-ai/dsh web --no-open
 ```
 
 修改代码后先重新构建，再重启 DSH。依赖或 `cordis.patch.yml` 有变化时，需要重新执行一次 `add .`。
