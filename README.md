@@ -5,93 +5,75 @@
 <h1 align="center">蓝鲸女仆桌宠</h1>
 
 <p align="center">
-  DeepSeek Harness Web 的桌宠。<br>
-  任务有动静时，她会在网页边上换个动作提醒你。
+  给 DeepSeek Harness Web 加一只会看任务状态、提醒你确认、顺便估算费用的蓝鲸女仆。
 </p>
 
-<p align="center"><strong>非官方同人插件，与 DeepSeek 官方无隶属、合作或背书关系。</strong></p>
+<p align="center">
+  <a href="#安装"><strong>安装试试</strong></a> ·
+  <strong>喜欢她就点右上角 ⭐ Star</strong>
+</p>
 
-## 桌宠会做什么
+<p align="center"><sub>非官方同人插件，与 DeepSeek 官方无隶属、合作或背书关系。</sub></p>
 
-她会跟着当前会话一起忙。任务状态一变，她也会有反应：
+## 她会做什么
 
-| 任务状态 | 桌宠的反应 |
-| --- | --- |
-| 开始或正在处理 | 开始工作，偶尔看看进度 |
-| 等你确认 | 停下来等你，并冒泡提醒 |
-| 一轮结束 | 告诉你这轮结束了，也会显示用了多久 |
-| 子任务失败 | 垂下尾鳍，提醒你这里出了问题 |
-| 暂时没事 | 安静待着，过一会儿会休息 |
-
-你可以把她拖到顺手的位置。点一下会挥手，双击会跳一下。位置只记在当前浏览器里。
-
-空白会话，或者 3 秒内结束的小动作，不会专门弹一个“结束”提醒；但子任务出了问题，她还是会提醒。
-
-为了不乱报，她只说自己能确定的状态。她不复述命令，也不会把“一轮结束”说成“任务成功”。提示语会轮换，尽量不连续重复。
-
-## 余额和费用估算
-
-点右下角的余额按钮，可以看：
-
-- DeepSeek 账户当前余额
-- 按本机当天余额变化估算的“今日约消费”
-- 当前会话大约用了多少 DeepSeek API 费用
-
-这些数字只适合做参考：
-
-1. `API Key` 由 DSH 服务端从凭证服务读取，不会传给浏览器。余额和会话费用接口只能从本机访问；服务端会用这个 Key 请求已经配置好的 DeepSeek 兼容余额接口。
-2. “今日约消费”根据本机当天每次查询之间的余额下降累计，不是官方账单。充值不会清零已经记录的消费；赠金变化，或其他设备和应用共用同一个 Key，都会影响结果。升级后的第一次查询只会建立基线，暂时不会显示估算。
-3. “本会话已用”只统计来源可以确认为 `deepseek-official`、而且已经写进价格表的模型。未定价模型会明确标出，不会显示成 `¥0`。失败请求没有 usage、日志被裁剪或价格规则更新时，估算可能与官方账单不同，请以 DeepSeek 控制台为准。
-
-估算时会按 DeepSeek 的峰谷价来算：北京时间周一至周五 09:00–12:00、14:00–18:00 使用高峰价，其余时间使用低谷价。价格以 [DeepSeek API 官方定价页](https://api-docs.deepseek.com/quick_start/pricing/) 为准。
+- **跟着任务一起动**：开始处理、忙碌和休息时会切换动作。
+- **该找你时提醒你**：等待确认、任务结束或子任务失败时会冒泡。
+- **告诉你这一轮用了多久**：只报告能确定的状态，不把“结束”说成“成功”。
+- **可以互动**：拖到顺手的位置，单击挥手，双击跳一下。
+- **顺手看费用**：查看 DeepSeek 余额，以及今日和当前会话的费用估算。
 
 ## 安装
 
-安装前需要 Node.js `^22.19.0` 或 `>=24.0.0`，以及可用的 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web profile。查看余额还要求这个 profile 已配置 `DEEPSEEK_API_KEY`；即使余额不可用，桌宠和任务提醒也能正常使用。
-
-下面的命令固定使用本项目实测过的 DSH `0.1.1-rc.2`。电脑上没有全局 `dsh` 命令也可以直接运行：
+需要 Node.js `^22.19.0` 或 `>=24.0.0`，以及可用的 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web profile。
 
 ```sh
 npx --yes @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web add github:yuxino/dsh-blue-whale-maid
 ```
 
-装好以后，把正在运行的 DSH Web 停掉再开一次：
+装好后重启 DSH Web：
 
 ```sh
 npx --yes @deepseek-ai/dsh@0.1.1-rc.2 web
 ```
 
-### 更新
+她会出现在网页右下角。余额功能还需要当前 profile 配置 `DEEPSEEK_API_KEY`；没有 Key 时，桌宠和任务提醒仍然能用。
+
+## 费用说明
+
+- API Key 由 DSH 服务端读取，不会传给浏览器；桌宠界面只访问本机接口。
+- “今日约消费”根据本机当天的余额变化估算，不是官方账单。
+- “本会话已用”只计算来源明确、价格已知的 DeepSeek 官方模型；最终费用以 [DeepSeek 控制台](https://platform.deepseek.com/usage) 为准。
+
+<details>
+<summary><strong>更新与卸载</strong></summary>
+
+更新：
 
 ```sh
 npx --yes @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web update dsh-blue-whale-maid
 ```
 
-更新后也要重启 DSH。Bundle、服务端逻辑、依赖或素材有变化时，只刷新网页不够。
-
-### 卸载
+卸载：
 
 ```sh
 npx --yes @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web remove dsh-blue-whale-maid
 ```
 
-卸载后同样重启一次 DSH。
+更新或卸载后都要重启 DSH Web。
 
-## 关于这个桌宠
+</details>
 
-DeepSeek 官方用的是鲸鱼标志，但没有发布过对应的角色姓名、性别、服装或性格设定。这个桌宠沿用了此前蓝鲸女仆素材的长蓝发、女仆装和鲸尾造型，又重新做成了适合网页桌宠的 Q 版动作。她不是 DeepSeek 官方角色。
-
-具体外观与表达边界见 [角色设定](./docs/character-bible.md)，美术来源与许可说明见 [CREDITS.md](./CREDITS.md)。
-
-## 本地开发
+<details>
+<summary><strong>本地开发</strong></summary>
 
 ```sh
-npm run build   # 把 assets/spritesheet.webp 嵌入 lib/client.js
-npm test        # 定价与会话费用回归测试
-npm run check   # 构建、测试与语法检查
+npm run build
+npm test
+npm run check
 ```
 
-要让真实的 Web profile 使用当前仓库，从仓库根目录运行：
+让 Web profile 直接使用当前仓库：
 
 ```sh
 npx --yes @deepseek-ai/dsh@0.1.1-rc.2 plugin --profile web add .
@@ -99,17 +81,17 @@ npx --yes @deepseek-ai/dsh@0.1.1-rc.2 --profile web --dump-config
 npx --yes @deepseek-ai/dsh@0.1.1-rc.2 web --no-open
 ```
 
-`add .` 会让 profile 通过本地链接使用当前仓库。改代码后先重新构建，再重启 DSH；如果修改了 `package.json`、依赖或 `cordis.patch.yml`，还要重新执行一次 `add .` 更新依赖信息。
+修改代码后先重新构建，再重启 DSH。依赖或 `cordis.patch.yml` 有变化时，需要重新执行一次 `add .`。
 
-`tools/sync-profile.sh` 只用于把浏览器 Bundle 同步到独立安装的 profile。如果 profile 已经通过本地链接指向当前仓库，脚本会跳过复制并给出提示。修改服务端、Bundle 或素材后仍需重启 DSH。
+</details>
 
-### 真实 DSH 验收
+## 关于
 
-当前 `1.10.6` 已经在 DeepSeek Harness `0.1.1-rc.2` 的真实 Web profile 里实际跑过。图集、点击与拖动、气泡避让、任务提醒、余额和会话费用都逐项检查过；视口缩小到 `640 × 720` 时也没有布局问题。检查时浏览器控制台和 Host 日志均无报错。
+这个桌宠以此前由 **simashui** 署名的蓝鲸女仆素材为视觉原型，重新制作了适合网页桌宠的 Q 版动作。她不是 DeepSeek 官方角色。
 
-## 署名与许可
+- [角色设定](./docs/character-bible.md)
+- [美术来源与许可](./CREDITS.md)
+- [第三方代码声明](./THIRD_PARTY_NOTICES.md)
+- [代码许可证](./LICENSE)
 
-- 这个桌宠以此前一版由 **simashui** 署名的蓝鲸女仆桌宠素材为视觉原型，重新制作了 Q 版动画。她不是 DeepSeek 官方角色。
-- 插件代码使用 [MIT License](./LICENSE)；角色美术与衍生预览不在 MIT 范围内。DeepSeek 与 DeepSeek Harness 的名称、标志和商标权利仍归各自权利方所有。
-- 定价引擎改编自 MIT 项目 [bpc-oss/dsh-web-billing](https://github.com/bpc-oss/dsh-web-billing)，完整声明见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
-- 设计与资料来源说明见 [CREDITS.md](./CREDITS.md)。
+如果她让 DSH 好用了一点，欢迎点一下页面右上角的 ⭐ Star。这样我能知道，确实有人想让这个小插件继续更新。
