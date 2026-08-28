@@ -1,7 +1,7 @@
 {
   "name": "dsh-blue-whale-maid",
-  "version": "1.10.6",
-  "description": "汐汐：陪你使用 DSH 的 Q 版蓝鲸女仆桌宠与任务提醒伙伴",
+  "version": "1.10.7",
+  "description": "DeepSeek Harness Web 的蓝鲸女仆桌宠，任务有动静时会在网页边上提醒你",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",

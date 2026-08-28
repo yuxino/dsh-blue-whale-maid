@@ -1,6 +1,6 @@
 # Credits
 
-## 汐汐
+## 蓝鲸女仆桌宠
 
 本项目此前使用的蓝鲸女仆美术与元数据来自 [codex-pets.net](https://codex-pets.net/#/pets/blue-whale-maid)，素材作者署名为 **simashui**。
 
@@ -10,7 +10,7 @@
 - Q 版方向、动作设计与验收：yuxino / dsh-blue-whale-maid contributors
 - Q 版美术生成：OpenAI 图像生成工具
 
-汐汐是非官方同人角色，与 DeepSeek 官方没有隶属、合作或背书关系。
+这个桌宠是非官方同人角色，与 DeepSeek 官方没有隶属、合作或背书关系。
 
 ## 代码
 

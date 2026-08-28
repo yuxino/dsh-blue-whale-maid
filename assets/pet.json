@@ -1,7 +1,7 @@
 {
   "id": "blue-whale-maid",
-  "displayName": "汐汐 · 蓝鲸女仆",
-  "description": "一位会跟随任务状态改变动作并给出简短提醒的 Q 版蓝鲸女仆。",
+  "displayName": "蓝鲸女仆桌宠",
+  "description": "DeepSeek Harness Web 的桌宠，任务有动静时会在网页边上提醒你。",
   "spritesheetPath": "spritesheet.webp",
   "spriteVersionNumber": 2,
   "kind": "person"
