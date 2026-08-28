@@ -1,8 +1,0 @@
-{
-  "id": "blue-whale-maid",
-  "displayName": "蓝鲸女仆桌宠",
-  "description": "DeepSeek Harness Web 的桌宠，任务有动静时会在网页边上提醒你。",
-  "spritesheetPath": "spritesheet.webp",
-  "spriteVersionNumber": 2,
-  "kind": "person"
-}
