@@ -1,8 +1,8 @@
 /**
  * dsh-blue-whale-maid — browser half (template).
  *
- * `docs/development/embed.mjs` replaces the character placeholder with the
- * base64 data URL of `assets/blue-whale-maid-v2.png` and writes `lib/client.js`.
+ * `tools/embed.mjs` replaces the `__ATLAS_DATA_URL__` placeholder with the
+ * base64 data URL of `assets/spritesheet.webp` and writes `lib/client.js`.
  * Do not edit `lib/client.js` directly.
  *
  * The bundle registers a `shell.overlay` entry (the frame-wide floating
@@ -10,8 +10,11 @@
  * draggable, session-aware desktop pet that doubles as a task-completion
  * notifier.
  *
- * Character and animation: a community-made chibi character animated with
- * small canvas transforms. It is not an official or endorsed brand mascot.
+ * Character and animation: a fan-made chibi adaptation for this project.
+ * It is not an official DeepSeek character or endorsed brand mascot.
+ * Sprite layout: Codex Pet v2 atlas, 8 cols x 11 rows, cell 192x208:
+ *   0 idle · 1 running-right · 2 running-left · 3 waving · 4 jumping
+ *   5 failed · 6 waiting · 7 running · 8 review · 9-10 look-directions (v2)
  *
  * Notification scheme (root-scope signals only):
  *   - a session stops running     -> neutral 「任务名」这一轮结束了 + jump-to-session button
@@ -70,6 +73,16 @@ window.__ModuleLoader__.load({
   color:var(--bwm-accent);margin-bottom:2px}
 .bwm-bubble-meta{display:block;color:#737d8c;font-size:11px;line-height:1.6}
 .bwm-bubble-body{display:block;color:#3e4a58}
+.bwm-balance-card{display:flex;flex-direction:column;gap:2px;min-width:150px}
+.bwm-balance-label{color:#687485;font-size:11px;line-height:1.4}
+.bwm-balance-value{color:#315783;font:700 26px/1.25 -apple-system,"PingFang SC",sans-serif;
+  letter-spacing:-.5px;margin:2px 0 4px}
+.bwm-balance-divider{height:1px;background:#e2e6eb;margin:4px 0}
+.bwm-balance-row{display:flex;justify-content:space-between;gap:16px;
+  font-size:12px;line-height:1.7;color:#465362}
+.bwm-balance-row-label{color:#737d8c}
+.bwm-balance-row-value{font-variant-numeric:tabular-nums;color:#263240}
+.bwm-balance-card .bwm-bubble-meta{margin-top:3px}
 .bwm-bubble-action{margin-top:8px;display:inline-block;border:1px solid #24486f;border-radius:999px;padding:5px 12px;
   background:var(--bwm-accent);color:#fff;font:700 12px/1.6 inherit;cursor:pointer;
   transition:background .12s,transform .08s}
@@ -84,6 +97,19 @@ window.__ModuleLoader__.load({
 .bwm-bubble.bwm-kind-wait{--bwm-line:#d7a653;--bwm-accent:#a65a0a;
   box-shadow:0 0 0 3px rgba(255,255,255,.88),0 5px 0 rgba(146,89,10,.07),0 12px 26px rgba(146,89,10,.13)}
 .bwm-bubble.bwm-kind-wait .bwm-bubble-action{background:#b87919;border-color:#936014}
+.bwm-bubble.bwm-kind-balance{--bwm-line:#8faac4;--bwm-accent:#315783;
+  box-shadow:0 0 0 3px rgba(255,255,255,.88),0 5px 0 rgba(49,87,131,.08),0 12px 26px rgba(30,64,100,.15)}
+.bwm-balance-btn{position:absolute;right:2px;bottom:3px;height:22px;border:1px solid #24486f;
+  border-radius:999px;background:#315783;color:#fff;padding:0 8px;
+  font:700 11px/20px -apple-system,"PingFang SC",sans-serif;text-align:center;cursor:pointer;
+  box-shadow:0 2px 6px rgba(15,23,42,.2);
+  opacity:.76;transition:opacity .15s,transform .08s,background .12s;z-index:1501;
+  white-space:nowrap;letter-spacing:-.2px}
+.bwm-root:hover .bwm-balance-btn{opacity:1}
+.bwm-balance-btn:hover{opacity:1;background:#27496f;transform:translateY(-1px)}
+.bwm-balance-btn:active{transform:translateY(0)}
+.bwm-balance-btn.bwm-loading{animation:bwm-blink 1s steps(2) infinite}
+@keyframes bwm-blink{50%{opacity:.35}}
 @keyframes bwm-bubble-pop{
   0%{opacity:0;transform:translateX(-50%) translateY(var(--bwm-enter-y)) scale(.94)}
   72%{opacity:1;transform:translateX(-50%) translateY(-1px) scale(1.018)}
@@ -91,6 +117,7 @@ window.__ModuleLoader__.load({
 }
 @media (prefers-reduced-motion: reduce){
   .bwm-bubble.bwm-on{animation:none;transform:translateX(-50%) translateY(0) scale(1)}
+  .bwm-balance-btn.bwm-loading{animation:none}
 }
 `;
 		const CSS_TAG_ID = "dsh-blue-whale-maid/styles";
@@ -106,29 +133,30 @@ window.__ModuleLoader__.load({
 			tag.textContent = CSS;
 		}
 
-		// --------------------------------------------------------- character
-		// Replaced by docs/development/embed.mjs with a compact data URL.
-		const CHARACTER_DATA_URL = "__CHARACTER_DATA_URL__";
+		// ------------------------------------------------------------- atlas
+		// Replaced by tools/embed.mjs with "data:image/webp;base64,…".
+		const ATLAS_DATA_URL = "__ATLAS_DATA_URL__";
 
 		const CELL_W = 192;
 		const CELL_H = 208;
+		const ATLAS_COLS = 8;
 		// On-screen size (CSS px): 75% of the sprite cell — desktop-pet scale.
 		const PET_W = 144;
 		const PET_H = 156;
 
-		// Motion timing for the single-image canvas animator.
+		// Codex Pet v2 standard row layout (see codexpet.xyz spec).
 		const STATES = {
-			idle: { frames: 12, fps: 12 },
-			runRight: { frames: 10, fps: 14 },
-			runLeft: { frames: 10, fps: 14 },
-			wave: { frames: 10, fps: 12, once: true },
-			jump: { frames: 12, fps: 14, once: true },
-			fail: { frames: 12, fps: 16, once: true },
-			wait: { frames: 12, fps: 10 },
-			run: { frames: 10, fps: 14 },
-			review: { frames: 12, fps: 10 },
-			lookA: { frames: 10, fps: 10, once: true },
-			lookB: { frames: 10, fps: 10, once: true }
+			idle: { row: 0, frames: 6, fps: 5 },
+			runRight: { row: 1, frames: 8, fps: 9 },
+			runLeft: { row: 2, frames: 8, fps: 9 },
+			wave: { row: 3, frames: 4, fps: 5, once: true },
+			jump: { row: 4, frames: 5, fps: 6, once: true },
+			fail: { row: 5, frames: 8, fps: 6, once: true },
+			wait: { row: 6, frames: 6, fps: 4 },
+			run: { row: 7, frames: 6, fps: 8 },
+			review: { row: 8, frames: 6, fps: 4 },
+			lookA: { row: 9, frames: 8, fps: 3, once: true },
+			lookB: { row: 10, frames: 8, fps: 3, once: true }
 		};
 
 		const truncate = (s, n) => (s && s.length > n ? `${s.slice(0, n)}…` : s);
@@ -177,6 +205,7 @@ window.__ModuleLoader__.load({
 			pickup: ["好，放在这里。", "位置记住了。", "我就待在这里。"],
 			ended: ["结果已经出来了。", "可以验收了。", "去看看结果吧。"],
 			failed: ["任务出错了。", "这里遇到了问题。", "任务没有完成。", "这次需要重试。"],
+			offline: ["暂时连不上。", "连接中断了。", "还没有收到响应。", "请稍后再试。"],
 			intro: ["我在呢。", "有新动静，我会告诉你。"]
 		};
 		const pickBags = new WeakMap();
@@ -223,6 +252,49 @@ window.__ModuleLoader__.load({
 			return min > 0 ? `${h} 小时 ${min} 分` : `${h} 小时`;
 		};
 
+		// ---- DeepSeek account info (the credential is never sent to the browser)
+		const BALANCE_ROUTE = "/api/blue-whale-maid/balance";
+		const SESSION_COST_ROUTE = "/api/blue-whale-maid/session-cost";
+
+		const fmtMoney = (value, currency) => {
+			const symbol = currency === "USD" ? "$" : "¥";
+			if (typeof value !== "number" || !Number.isFinite(value)) return `${symbol}?`;
+			return `${symbol}${value.toFixed(2)}`;
+		};
+		const fmtCost = (value, currency = "CNY") => {
+			if (typeof value !== "number" || !Number.isFinite(value)) return null;
+			const symbol = currency === "USD" ? "$" : "¥";
+			if (value >= 1) return `${symbol}${value.toFixed(2)}`;
+			if (value >= 0.01) return `${symbol}${value.toFixed(4)}`;
+			return `${symbol}${value.toFixed(6)}`;
+		};
+		/** Balance bubble content from the host route payload. */
+		function balanceText(payload, todayConsumed) {
+			const infos = payload && Array.isArray(payload.balance_infos) ? payload.balance_infos : [];
+			const info = infos[0];
+			if (!info) return { balance: { label: "余额不可用", value: "—" }, rows: [] };
+			const currency = info.currency ?? "CNY";
+			const total = Number(info.total_balance);
+			const lowLine = currency === "USD" ? 1 : 5;
+			const balanceLabel = !Number.isFinite(total)
+				? "余额不可用"
+				: total <= 0
+					? "余额不足"
+					: total < lowLine
+						? "余额较低"
+						: "账户余额";
+			const rows = [];
+			if (info.topped_up_balance !== void 0) rows.push({ label: "充值", value: fmtMoney(Number(info.topped_up_balance), currency) });
+			if (info.granted_balance !== void 0) rows.push({ label: "赠金", value: fmtMoney(Number(info.granted_balance), currency) });
+			if (typeof todayConsumed === "number" && Number.isFinite(todayConsumed)) {
+				rows.push({ label: "今日约消费", value: `≈${fmtMoney(todayConsumed, currency)}` });
+			}
+			return {
+				balance: { label: balanceLabel, value: fmtMoney(total, currency) },
+				rows
+			};
+		}
+
 		/**
 		 * A human-meaningful session title, or null. `displayTitle` falls back
 		 * to the cwd basename and then the session id — those are machine
@@ -262,15 +334,16 @@ window.__ModuleLoader__.load({
 		 * `getSignal()` returns { rows, current } where rows are session
 		 * summaries { id, title, running, completed, pending, jobs }.
 		 * `show(text, ms, opts)` shows a bubble; `opts` = { action?: { label,
-		 * fn }, kind?: 'ended'|'failed'|'wait', onHoverChange?: fn }.
+		 * fn }, kind?: 'ended'|'failed'|'wait'|'balance', onHoverChange?: fn }.
 		 */
 		function createPetEngine({ root, canvas, getSignal, show, openSession }) {
+			const atlas = new Image();
+			atlas.src = ATLAS_DATA_URL;
+			const ctx = canvas.getContext("2d");
+
 			const reducedMotion =
 				typeof matchMedia !== "undefined" &&
 				matchMedia("(prefers-reduced-motion: reduce)").matches;
-			const character = new Image();
-			character.src = CHARACTER_DATA_URL;
-			const ctx = canvas.getContext("2d");
 
 			let state = "idle";
 			let frame = 0;
@@ -677,7 +750,8 @@ window.__ModuleLoader__.load({
 				const once = STATES[state]?.once === true;
 
 				if (notifyActive || once) {
-					// Notifications and one-shot gestures own this frame.
+					// Notifications and one-shot gestures own this frame. The latter
+					// also covers async balance success/failure gestures.
 				} else if (anyPending) {
 					// a session is blocked on a user question → waiting
 					if (!dragging && !once && state !== "wait") setState("wait");
@@ -797,71 +871,19 @@ window.__ModuleLoader__.load({
 				if (canvas.height !== CELL_H * dpr) canvas.height = CELL_H * dpr;
 				ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 				ctx.clearRect(0, 0, CELL_W, CELL_H);
-				if (character.complete && character.naturalWidth > 0) {
+				if (atlas.complete && atlas.naturalWidth > 0) {
 					const def = stateDef();
-					const frameDur = 1000 / def.fps;
-					const phase = ((frame + frameElapsed / frameDur) / def.frames) * Math.PI * 2;
-					let x = 0;
-					let y = 0;
-					let angle = 0;
-					let scaleX = 1;
-					let scaleY = 1;
-					switch (state) {
-						case "runRight":
-							x = 2;
-							y = -Math.abs(Math.sin(phase)) * 5;
-							angle = Math.sin(phase) * 0.025;
-							break;
-						case "runLeft":
-							x = -2;
-							y = -Math.abs(Math.sin(phase)) * 5;
-							angle = -Math.sin(phase) * 0.025;
-							scaleX = -1;
-							break;
-						case "run":
-							y = -Math.abs(Math.sin(phase)) * 4;
-							angle = Math.sin(phase) * 0.018;
-							break;
-						case "wave":
-							angle = Math.sin(phase) * 0.075;
-							x = Math.sin(phase) * 2;
-							break;
-						case "jump":
-							y = -Math.max(0, Math.sin(phase)) * 18;
-							scaleX = 1 + Math.sin(phase) * 0.025;
-							scaleY = 1 - Math.sin(phase) * 0.025;
-							break;
-						case "fail":
-							x = Math.sin(phase * 3) * 4;
-							angle = Math.sin(phase * 3) * 0.025;
-							break;
-						case "wait":
-							y = Math.sin(phase) * 2;
-							angle = Math.sin(phase) * 0.018;
-							break;
-						case "review":
-							scaleX = scaleY = 1 + Math.sin(phase) * 0.018;
-							break;
-						case "lookA":
-							x = -3;
-							angle = -0.035 + Math.sin(phase) * 0.008;
-							break;
-						case "lookB":
-							x = 3;
-							angle = 0.035 + Math.sin(phase) * 0.008;
-							break;
-						default:
-							y = napping ? 1 : Math.sin(phase) * 1.5;
-					}
-					ctx.save();
-					ctx.translate(CELL_W / 2 + x, CELL_H / 2 + y);
-					ctx.rotate(angle);
-					ctx.scale(scaleX, scaleY);
-					const imageScale = Math.min(CELL_W / character.naturalWidth, CELL_H / character.naturalHeight);
-					const imageWidth = character.naturalWidth * imageScale;
-					const imageHeight = character.naturalHeight * imageScale;
-					ctx.drawImage(character, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
-					ctx.restore();
+					ctx.drawImage(
+						atlas,
+						frame * CELL_W,
+						def.row * CELL_H,
+						CELL_W,
+						CELL_H,
+						0,
+						0,
+						CELL_W,
+						CELL_H
+					);
 				}
 				for (const hh of hearts) {
 					const alpha = 1 - hh.life / hh.ttl;
@@ -898,10 +920,157 @@ window.__ModuleLoader__.load({
 			}
 
 			// ----------------------------------------------------- pointer
+			/**
+			 * Query DeepSeek balance + today's consumption (host route), plus
+			 * the current session's cost, and show the result in the bubble.
+			 * The credential is never sent to browser code. The host route forwards
+			 * it only to the configured DeepSeek-compatible balance endpoint.
+			 * Also updates the corner balance badge and schedules auto-refresh.
+			 */
+			const BADGE_REFRESH_MS = 5 * 60 * 1000;
+			let badgeTimer = 0;
+			let accountQuerySeq = 0;
+			let manualAccountQuerySeq = 0;
+			function badgeEl() {
+				return root.querySelector(".bwm-balance-btn");
+			}
+			function setBadge(text, loading) {
+				const el = badgeEl();
+				if (!el) return;
+				el.textContent = text;
+				el.classList.toggle("bwm-loading", !!loading);
+			}
+			function scheduleBadgeRefresh(requestSeq) {
+				if (disposed || requestSeq !== accountQuerySeq) return;
+				clearTimeout(badgeTimer);
+				badgeTimer = setTimeout(() => {
+					if (!disposed && !document.hidden) queryAccount(true);
+				}, BADGE_REFRESH_MS);
+			}
+			async function queryAccount(silent) {
+				if (disposed) return;
+				silent = silent === true;
+				// Completion/failure notices own the bubble. A background refresh must
+				// also never supersede a manual balance request already in progress.
+				if (!silent && (notifyQueue.length > 0 || isNotifyActive())) return;
+				if (silent && manualAccountQuerySeq !== 0) return;
+				const requestSeq = ++accountQuerySeq;
+				if (!silent) manualAccountQuerySeq = requestSeq;
+				try {
+					if (!silent) show("正在查询余额。", 0);
+					setBadge("…", true);
+					clearTimeout(badgeTimer);
+					let balance = null;
+					let todayConsumed = null;
+					let accountCurrency = "CNY";
+					try {
+						const res = await fetch(BALANCE_ROUTE, { cache: "no-store", signal: AbortSignal.timeout(15000) });
+						const body = await res.json().catch(() => null);
+						if (disposed || requestSeq !== accountQuerySeq) return;
+						if (!res.ok || !body || body.ok !== true) {
+							const msg = body && typeof body.message === "string" ? body.message : `查询失败（${res.status}）`;
+							if (!silent && !dragging && notifyQueue.length === 0 && !isNotifyActive()) {
+								gesture("fail");
+								show({ title: "余额查询失败。", body: msg }, 5000, { kind: "failed" });
+							} else if (!silent && dragging) {
+								show.hide?.();
+							}
+							setBadge("?", false);
+							scheduleBadgeRefresh(requestSeq);
+							return;
+						}
+						balance = body.balance ?? null;
+						todayConsumed = typeof body.todayConsumed === "number" ? body.todayConsumed : null;
+						// show the total on the corner badge
+						const infos = balance && Array.isArray(balance.balance_infos) ? balance.balance_infos : [];
+						const info = infos[0];
+						if (info) {
+							accountCurrency = info.currency ?? "CNY";
+							setBadge(fmtMoney(Number(info.total_balance), accountCurrency), false);
+						} else setBadge("?", false);
+					} catch {
+						if (disposed || requestSeq !== accountQuerySeq) return;
+						if (!silent && !dragging && notifyQueue.length === 0 && !isNotifyActive()) {
+							gesture("fail");
+							show(pick(LINES.offline), 4500, { kind: "failed" });
+						} else if (!silent && dragging) {
+							show.hide?.();
+						}
+						setBadge("?", false);
+						scheduleBadgeRefresh(requestSeq);
+						return;
+					}
+					// silent refresh = badge only, no bubble, reschedule quietly
+					if (silent) {
+						scheduleBadgeRefresh(requestSeq);
+						return;
+					}
+					// current session cost (best-effort; may be null)
+					let sessionCost = null;
+					let sessionUnpricedCalls = 0;
+					const currentId = getSignal().current;
+					if (currentId !== undefined) {
+						try {
+							const res = await fetch(`${SESSION_COST_ROUTE}?sessionId=${encodeURIComponent(currentId)}`, { cache: "no-store", signal: AbortSignal.timeout(8000) });
+							const body = await res.json().catch(() => null);
+							if (disposed || requestSeq !== accountQuerySeq) return;
+							if (res.ok && body && body.ok === true) {
+								sessionUnpricedCalls = Number.isSafeInteger(body.unpricedCalls) && body.unpricedCalls > 0
+									? body.unpricedCalls
+									: 0;
+								const amount = accountCurrency === "USD" ? body.costUsd : body.cost;
+								if (typeof amount === "number" && Number.isFinite(amount)) sessionCost = amount;
+							}
+						} catch { /* session cost is optional */ }
+					}
+					if (disposed || requestSeq !== accountQuerySeq) return;
+					// The selected session may have changed while the optional cost call
+					// was in flight; never label an old session's cost as the new one's.
+					if (getSignal().current !== currentId) {
+						sessionCost = null;
+						sessionUnpricedCalls = 0;
+					}
+					// A notice (or an in-progress drag) that appeared during the request
+					// takes precedence. The corner badge is already up to date.
+					if (dragging) {
+						show.hide?.();
+						scheduleBadgeRefresh(requestSeq);
+						return;
+					}
+					if (notifyQueue.length > 0 || isNotifyActive()) {
+						scheduleBadgeRefresh(requestSeq);
+						return;
+					}
+					gesture("jump");
+					emitHearts(6);
+					const content = balanceText(balance, todayConsumed);
+					const cost = fmtCost(sessionCost, accountCurrency);
+					const costMeta = cost !== null
+						? `本会话已用 ${cost}${sessionUnpricedCalls > 0 ? " · 另有未定价调用" : ""}`
+						: sessionUnpricedCalls > 0
+							? "本会话含未定价模型，暂不估算"
+							: undefined;
+					show(
+						{
+							balance: content.balance,
+							rows: content.rows,
+							meta: costMeta
+						},
+						10000,
+						{ action: { label: "刷新", fn: () => queryAccount() }, kind: "balance" }
+					);
+					// auto-refresh the badge every 5 minutes while the tab is visible
+					scheduleBadgeRefresh(requestSeq);
+				} finally {
+					if (manualAccountQuerySeq === requestSeq) manualAccountQuerySeq = 0;
+				}
+			}
+
 			function onPointerDown(ev) {
 				if (ev.button !== 0 || disposed) return;
-				// The bubble owns its controls and must never start a pet drag.
-				if (ev.target instanceof Element && ev.target.closest(".bwm-bubble")) return;
+				// The bubble and balance icon own their clicks: pressing a card,
+				// its action, or the badge must never start a pet drag.
+				if (ev.target instanceof Element && ev.target.closest(".bwm-bubble, .bwm-balance-btn")) return;
 				// Keep an active completion/failure notification intact and let its
 				// action button remain the explicit way to interact with it.
 				if (isNotifyActive()) return;
@@ -1009,6 +1178,19 @@ window.__ModuleLoader__.load({
 			root.addEventListener("pointerup", onPointerUp);
 			root.addEventListener("pointercancel", onPointerCancel);
 
+			// refresh the balance badge when the page becomes visible again
+			// (tab switch back / window focus); the very first mount is handled
+			// by the mount-time silent fetch, so only fire after a hide cycle.
+			let seenHidden = false;
+			const onVisibility = () => {
+				if (document.hidden) {
+					seenHidden = true;
+					return;
+				}
+				if (seenHidden && !disposed) { try { queryAccount(true); } catch {} }
+			};
+			document.addEventListener("visibilitychange", onVisibility);
+
 			// initial position
 			try {
 				const saved = JSON.parse(localStorage.getItem(STORE_KEY_POS));
@@ -1028,6 +1210,7 @@ window.__ModuleLoader__.load({
 			raf = requestAnimationFrame(loop);
 
 			return {
+				queryAccount,
 				canShowIntro() {
 					return !disposed && !dragging && notifyQueue.length === 0 && !isNotifyActive();
 				},
@@ -1038,6 +1221,8 @@ window.__ModuleLoader__.load({
 				dispose() {
 					disposed = true;
 					cancelAnimationFrame(raf);
+					clearTimeout(badgeTimer);
+					document.removeEventListener("visibilitychange", onVisibility);
 					window.removeEventListener("resize", fitPosToViewport);
 					root.removeEventListener("pointerdown", onPointerDown);
 					root.removeEventListener("pointermove", onPointerMove);
@@ -1223,23 +1408,61 @@ window.__ModuleLoader__.load({
 						kind
 					].filter(Boolean).join(" ");
 					if (typeof text === "object" && text !== null) {
-						if (text.title !== undefined) {
-							const t = document.createElement("span");
-							t.className = "bwm-bubble-title";
-							t.textContent = text.title;
-							b.appendChild(t);
-						}
-						if (text.meta !== undefined) {
-							const m = document.createElement("span");
-							m.className = "bwm-bubble-meta";
-							m.textContent = text.meta;
-							b.appendChild(m);
-						}
-						if (text.body !== undefined) {
-							const d = document.createElement("span");
-							d.className = "bwm-bubble-body";
-							d.textContent = text.body;
-							b.appendChild(d);
+						if (text.balance !== undefined) {
+							// balance card: label → big value → divider → rows → meta
+							const card = document.createElement("div");
+							card.className = "bwm-balance-card";
+							const label = document.createElement("span");
+							label.className = "bwm-balance-label";
+							label.textContent = text.balance.label;
+							card.appendChild(label);
+							const value = document.createElement("span");
+							value.className = "bwm-balance-value";
+							value.textContent = text.balance.value;
+							card.appendChild(value);
+							if (Array.isArray(text.rows) && text.rows.length > 0) {
+								const div = document.createElement("div");
+								div.className = "bwm-balance-divider";
+								card.appendChild(div);
+								for (const row of text.rows) {
+									const r = document.createElement("div");
+									r.className = "bwm-balance-row";
+									const rl = document.createElement("span");
+									rl.className = "bwm-balance-row-label";
+									rl.textContent = row.label;
+									const rv = document.createElement("span");
+									rv.className = "bwm-balance-row-value";
+									rv.textContent = row.value;
+									r.append(rl, rv);
+									card.appendChild(r);
+								}
+							}
+							if (text.meta !== undefined) {
+								const m = document.createElement("span");
+								m.className = "bwm-bubble-meta";
+								m.textContent = text.meta;
+								card.appendChild(m);
+							}
+							b.appendChild(card);
+						} else {
+							if (text.title !== undefined) {
+								const t = document.createElement("span");
+								t.className = "bwm-bubble-title";
+								t.textContent = text.title;
+								b.appendChild(t);
+							}
+							if (text.meta !== undefined) {
+								const m = document.createElement("span");
+								m.className = "bwm-bubble-meta";
+								m.textContent = text.meta;
+								b.appendChild(m);
+							}
+							if (text.body !== undefined) {
+								const d = document.createElement("span");
+								d.className = "bwm-bubble-body";
+								d.textContent = text.body;
+								b.appendChild(d);
+							}
 						}
 					} else {
 						const span = document.createElement("span");
@@ -1300,20 +1523,23 @@ window.__ModuleLoader__.load({
 				});
 				engineRef.current = engine;
 				engine.observeSignal(sigRef.current, performance.now());
-				// One-time character introduction.
+				// One-time character introduction for this chibi v2 design.
 				let introTimer = 0;
 				try {
 					if (localStorage.getItem(STORE_KEY_INTRODUCED) !== "1") {
 						introTimer = setTimeout(() => {
-							// First-run copy is disposable. Never replace a task notice or
-							// another active bubble.
+							// First-run copy is disposable. Never let it replace a task notice,
+							// a user-requested balance card, or any other active bubble.
 							if (!engine.canShowIntro() || bubbleRef.current?.classList.contains("bwm-on")) return;
 							show(LINES.intro.join("\n"), 5200);
 							try { localStorage.setItem(STORE_KEY_INTRODUCED, "1"); } catch { /* ignore */ }
 						}, 900);
 					}
 				} catch { /* ignore */ }
+				// silently fetch the balance for the corner badge on mount
+				const first = setTimeout(() => { try { engine.queryAccount(true); } catch {} }, 1500);
 				return () => {
+					clearTimeout(first);
 					clearTimeout(introTimer);
 					engine.dispose();
 					show.dispose?.();
@@ -1339,7 +1565,21 @@ window.__ModuleLoader__.load({
 					"aria-live": "polite",
 					"aria-atomic": "true"
 				}),
-				h("canvas", { ref: canvasRef, width: 192, height: 208 })
+				h("canvas", { ref: canvasRef, width: 192, height: 208 }),
+				h(
+					"button",
+					{
+						className: "bwm-balance-btn",
+						type: "button",
+						title: "DeepSeek 余额（点击查看明细）",
+						"aria-label": "DeepSeek 余额",
+						onClick: (ev) => {
+							ev.stopPropagation();
+							engineRef.current?.queryAccount();
+						}
+					},
+					"¥…"
+				)
 			);
 		}
 
