@@ -12,11 +12,14 @@ permissions:
 
 jobs:
   check:
-    name: Node ${{ matrix.node-version }}
-    runs-on: ubuntu-latest
+    name: ${{ matrix.os }} / Node ${{ matrix.node-version }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os:
+          - ubuntu-latest
+          - windows-2025
         node-version:
           - "22"
           - "24"
@@ -43,3 +46,6 @@ jobs:
 
       - name: Verify generated client is current
         run: git diff --exit-code -- lib/client.js
+
+      - name: Verify package contents
+        run: npm pack --dry-run --json
